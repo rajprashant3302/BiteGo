@@ -1,0 +1,33 @@
+# Node
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.*
+
+# Build outputs
+dist/
+build/
+.out/
+.next/
+
+# Docker
+*.log
+
+# OS / Editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Coverage
+coverage/
+
+# Kafka / DB data (if volumes later)
+data/
+docker-data/
+node_modules/
+.generated/
+

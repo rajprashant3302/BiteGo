@@ -1,0 +1,17 @@
+{
+  "name": "mailer-service",
+  "version": "1.0.0",
+  "main": "consumer.js",
+  "scripts": {
+    "start": "node consumer.js"
+  },
+  "dependencies": {
+    "kafkajs": "^2.2.4",
+    "nodemailer": "^6.9.8",
+    "dotenv": "^16.4.5"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "Kafka consumer mailer service"
+}

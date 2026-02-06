@@ -1,0 +1,343 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  // output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/* ============================
+   ENUMS
+============================ */
+
+enum user_role_enum {
+  RestaurantOwner
+  DeliveryPartner
+  User
+  SuperAdmin
+  Ops
+  Support
+}
+
+enum payment_method_enum {
+  UPI
+  Card
+  Wallet
+  COD
+}
+
+enum payment_status_enum {
+  Pending
+  Success
+  Failed
+}
+
+enum order_status_enum {
+  Placed
+  Preparing
+  PickedUp
+  Delivered
+  Cancelled
+}
+
+enum transaction_type_enum {
+  Credit
+  Debit
+}
+
+enum discount_type_enum {
+  Flat
+  Percentage
+}
+
+enum ticket_status_enum {
+  Open
+  InProgress
+  Resolved
+}
+
+enum login_status_enum {
+  Success
+  Failed_OTP
+  Failed_Block
+}
+
+/* ============================
+   MODELS
+============================ */
+
+model ServiceZone {
+  ZoneID   String   @id @default(uuid())
+  ZoneName String?
+  City     String?
+  RadiusKM Decimal?
+
+  users       User[]
+  restaurants Restaurant[]
+}
+
+model User {
+  UserID        String          @id @default(uuid())
+  Name          String
+  Email         String          @unique
+  Phone         String          @unique
+  Role          user_role_enum?
+  ProfilePicURL String?
+  PasswordHash  String
+  WalletBalance Decimal         @default(0)
+  IsActive      Boolean         @default(true)
+  CreatedAt     DateTime        @default(now())
+
+  ZoneID String?
+  zone   ServiceZone? @relation(fields: [ZoneID], references: [ZoneID])
+
+  // Relations
+  addresses       Address[]
+  payments        Payment[]
+  orders          Orders[]
+  walletTxns      WalletTransaction[]
+  logins          LoginHistory[]
+  reviews         Review[]
+  supportTickets  SupportTicket[]
+  couponUsages    UserCoupon[]
+  notifications   NotificationInbox[]
+
+  // Role-based one-to-one relations
+  restaurantOwner RestaurantOwner?
+  deliveryPartner DeliveryPartner?
+}
+
+model Address {
+  AddressID   String   @id @default(uuid())
+  AddressLine String?
+  City        String?
+  Pincode     String?
+  Latitude    Decimal?
+  Longitude   Decimal?
+  IsDefault   Boolean  @default(false)
+
+  UserID String
+  user   User   @relation(fields: [UserID], references: [UserID])
+
+  orders Orders[]
+}
+
+model RestaurantOwner {
+  OwnerID       String  @id @default(uuid())
+  PANNumber     String  @unique
+  BankAccountNo String?
+  IFSC          String?
+
+  UserID String @unique
+  user   User   @relation(fields: [UserID], references: [UserID])
+
+  restaurants Restaurant[]
+}
+
+model Restaurant {
+  RestaurantID String   @id @default(uuid())
+  Name         String
+  CategoryName String?
+  Latitude     Decimal?
+  Longitude    Decimal?
+  Rating       Decimal?
+  IsActive     Boolean  @default(true)
+  IsOpen       Boolean  @default(true)
+
+  OwnerID String?
+  owner   RestaurantOwner? @relation(fields: [OwnerID], references: [OwnerID])
+
+  ZoneID String?
+  zone   ServiceZone? @relation(fields: [ZoneID], references: [ZoneID])
+
+  menuItems MenuItem[]
+  orders    Orders[]
+  reviews   Review[]
+}
+
+model MenuItem {
+  ItemID            String   @id @default(uuid())
+  ItemName          String?
+  ItemImageURL      String?
+  Price             Decimal?
+  IsVeg             Boolean?
+  IsAvailable       Boolean  @default(true)
+  AvailableQuantity Int      @default(0)
+
+  RestaurantID String
+  restaurant   Restaurant @relation(fields: [RestaurantID], references: [RestaurantID])
+
+  orderItems OrderItem[]
+}
+
+model DeliveryPartner {
+  DeliveryPartnerID String   @id @default(uuid())
+  VehicleNumber     String?
+  LicenseNumber     String?  @unique
+  CurrentLatitude   Decimal?
+  CurrentLongitude  Decimal?
+  IsAvailable       Boolean  @default(false)
+
+  UserID String @unique
+  user   User   @relation(fields: [UserID], references: [UserID])
+
+  orders Orders[]
+}
+
+model Payment {
+  PaymentID            String               @id @default(uuid())
+  TotalAmount          Decimal?
+  PaymentMethod        payment_method_enum?
+  PaymentStatus        payment_status_enum?
+  TransactionReference String?
+  PaymentDate          DateTime             @default(now())
+
+  UserID String
+  user   User   @relation(fields: [UserID], references: [UserID])
+
+  orders Orders[]
+}
+
+model Orders {
+  OrderID                String             @id @default(uuid())
+  OrderDateTime          DateTime           @default(now())
+  TotalAmount            Decimal?
+  OrderStatus            order_status_enum?
+  RestaurantEarning      Decimal            @default(0)
+  DeliveryPartnerEarning Decimal            @default(0)
+
+  UserID String
+  user   User   @relation(fields: [UserID], references: [UserID])
+
+  RestaurantID String
+  restaurant   Restaurant @relation(fields: [RestaurantID], references: [RestaurantID])
+
+  DeliveryPartnerID String?
+  deliveryPartner   DeliveryPartner? @relation(fields: [DeliveryPartnerID], references: [DeliveryPartnerID])
+
+  PaymentID String?
+  payment   Payment? @relation(fields: [PaymentID], references: [PaymentID])
+
+  AddressID String?
+  address   Address? @relation(fields: [AddressID], references: [AddressID])
+
+  items          OrderItem[]
+  invoice        Invoice?
+  reviews        Review[]
+  supportTickets SupportTicket[]
+  couponUsages   UserCoupon[]
+}
+
+model OrderItem {
+  OrderItemID String   @id @default(uuid())
+  Quantity    Int
+  ItemPrice   Decimal?
+
+  OrderID String
+  order   Orders @relation(fields: [OrderID], references: [OrderID])
+
+  ItemID String
+  item   MenuItem @relation(fields: [ItemID], references: [ItemID])
+}
+
+model Invoice {
+  InvoiceID   String   @id @default(uuid())
+  InvoiceDate DateTime @default(now())
+  PDFUrl      String?
+
+  OrderID String @unique
+  order   Orders @relation(fields: [OrderID], references: [OrderID])
+}
+
+model Review {
+  ReviewID         String @id @default(uuid())
+  RatingRestaurant Int?
+  RatingDelivery   Int?
+  ReviewText       String?
+
+  UserID String
+  user   User   @relation(fields: [UserID], references: [UserID])
+
+  RestaurantID String
+  restaurant   Restaurant @relation(fields: [RestaurantID], references: [RestaurantID])
+
+  OrderID String
+  order   Orders @relation(fields: [OrderID], references: [OrderID])
+}
+
+model SupportTicket {
+  TicketID    String              @id @default(uuid())
+  IssueType   String?
+  Description String?
+  Status      ticket_status_enum?
+  CreatedAt   DateTime            @default(now())
+
+  UserID String
+  user   User   @relation(fields: [UserID], references: [UserID])
+
+  OrderID String
+  order   Orders @relation(fields: [OrderID], references: [OrderID])
+}
+
+model Coupon {
+  CouponID      String              @id @default(uuid())
+  CouponCode    String              @unique
+  DiscountType  discount_type_enum?
+  DiscountValue Decimal?
+  ExpiryDate    DateTime?
+  IsActive      Boolean             @default(true)
+
+  usages UserCoupon[]
+}
+
+model UserCoupon {
+  UsageID String   @id @default(uuid())
+  UsedAt  DateTime @default(now())
+
+  UserID String
+  user   User   @relation(fields: [UserID], references: [UserID])
+
+  CouponID String
+  coupon   Coupon @relation(fields: [CouponID], references: [CouponID])
+
+  OrderID String
+  order   Orders @relation(fields: [OrderID], references: [OrderID])
+}
+
+model NotificationInbox {
+  NotificationID String   @id @default(uuid())
+  Title          String?
+  Body           String?
+  ActionLink     String?
+  IsRead         Boolean  @default(false)
+  ReceivedAt     DateTime @default(now())
+
+  UserID String
+  user   User   @relation(fields: [UserID], references: [UserID])
+}
+
+model WalletTransaction {
+  TransactionID   String                 @id @default(uuid())
+  TransactionType transaction_type_enum?
+  Amount          Decimal?
+  Description     String?
+  CreatedAt       DateTime               @default(now())
+
+  UserID String
+  user   User   @relation(fields: [UserID], references: [UserID])
+}
+
+model LoginHistory {
+  HistoryID   String             @id @default(uuid())
+  IPAddress   String?
+  DeviceType  String?
+  LoginStatus login_status_enum?
+  AttemptTime DateTime           @default(now())
+
+  UserID String
+  user   User   @relation(fields: [UserID], references: [UserID])
+}

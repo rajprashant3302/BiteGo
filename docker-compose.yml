@@ -1,0 +1,146 @@
+version: "3.9"
+
+services:
+  # ----------------- NGINX -----------------
+  nginx:
+    image: nginx:latest
+    ports:
+      - "80:80"
+    volumes:
+      - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf
+    depends_on:
+      - user-web
+      - admin-web
+      - vendor-web
+      - driver-web
+
+  # ----------------- FRONTENDS -----------------
+  user-web:
+    build: ./apps/user
+    expose:
+      - "3000"
+
+  vendor-web:
+    build: ./apps/vendor
+    expose:
+      - "3000"
+
+  driver-web:
+    build: ./apps/driver
+    expose:
+      - "3000"
+
+  admin-web:
+    build: ./apps/admin
+    expose:
+      - "3000"
+
+  # ----------------- BACKEND -----------------
+  
+  graphql-gateway:
+    build: 
+      context: .
+      dockerfile: backend/graphql-gateway/Dockerfile
+    expose:
+      - "4000"
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+    depends_on:
+      - auth-service
+      - order-service
+
+  auth-service:
+    build:
+      context: .  # ✅ Root context allows access to packages/database
+      dockerfile: backend/auth-service/Dockerfile
+    env_file: .env
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+    depends_on:
+      - db
+
+  order-service:
+    build:
+      context: .  # ✅ Applied fix here
+      dockerfile: backend/order-service/Dockerfile
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+    depends_on:
+      - db
+
+  earning-service:
+    build:
+      context: .  # ✅ Applied fix here
+      dockerfile: backend/earning-service/Dockerfile
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+    depends_on:
+      - db
+
+  chat-service:
+    build:
+      context: .  # ✅ Applied fix here
+      dockerfile: backend/chat-service/Dockerfile
+    env_file: .env
+    depends_on:
+      - mongo
+
+  # ----------------- DATABASE -----------------
+  db:
+    image: postgres:15
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_DB: ${DB_NAME}
+    ports:
+      - "${DB_PORT}:5432"
+    volumes:
+      - ./docker-data/db:/var/lib/postgresql/data
+
+  # ----------------- INFRA -----------------
+  redis:
+    image: redis:7
+
+  mongo:
+    image: mongo:6
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.5.3
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:7.5.3
+    hostname: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9094:9094"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094
+      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - "8080:8080"
+    depends_on:
+      - kafka
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
