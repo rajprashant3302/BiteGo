@@ -82,6 +82,21 @@ services:
     depends_on:
       - db
 
+  mailer-service:
+    build:
+      context: .
+      dockerfile: backend/mailer-service/Dockerfile
+    env_file: .env
+    environment:
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+      - KAFKAJS_NO_PARTITIONER_WARNING=1
+    depends_on:
+      db:
+        condition: service_started
+      kafka:
+        condition: service_healthy
+
+
   chat-service:
     build:
       context: .  # ✅ Applied fix here
@@ -134,6 +149,13 @@ services:
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
       KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    healthcheck:
+      test: ["CMD", "bash", "-c", "nc -z localhost 9092"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest

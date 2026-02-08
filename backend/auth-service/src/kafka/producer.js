@@ -1,8 +1,9 @@
+// backend/auth-service/src/kafka/producer.js
 const { Kafka } = require("kafkajs");
 
 const kafka = new Kafka({
   clientId: "auth-service",
-  brokers: ["kafka:9092"],
+  brokers: ["kafka:9092"], 
   retry: {
     initialRetryTime: 300,
     retries: 10
@@ -12,34 +13,29 @@ const kafka = new Kafka({
 const producer = kafka.producer();
 
 const connectProducer = async () => {
-  let connected = false;
-
-  while (!connected) {
-    try {
-      console.log("Trying to connect to Kafka...");
-      await producer.connect();
-      connected = true;
-      console.log("Kafka Producer Connected");
-    } catch (err) {
-      console.error("Kafka not ready, retrying in 3s...");
-      await new Promise(res => setTimeout(res, 3000));
-    }
-  }
+  await producer.connect();
+  console.log("✅ Kafka Producer Connected");
 };
 
 const publishEvent = async (type, payload) => {
-  await producer.send({
-    topic: "auth-events",
-    messages: [
-      {
-        value: JSON.stringify({
-          type,
-          payload,
-          timestamp: new Date().toISOString()
-        })
-      }
-    ]
-  });
+  try {
+    await producer.send({
+      topic: "auth-events",
+      messages: [
+        {
+          key: payload.email || "unknown", 
+          value: JSON.stringify({
+            type,
+            payload,
+            timestamp: new Date().toISOString()
+          })
+        }
+      ]
+    });
+    console.log(`📤 Event Published: ${type}`);
+  } catch (err) {
+    console.error("❌ Failed to publish event:", err);
+  }
 };
 
 module.exports = { connectProducer, publishEvent };
