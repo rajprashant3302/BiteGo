@@ -19,6 +19,7 @@ Make sure you have these installed:
 git clone https://github.com/rajprashant3302/BiteGo.git
 cd BiteGo
 docker-compose up -d --build
+```bash
 
 ## to close server
 
@@ -28,7 +29,7 @@ docker-compose down
 docker ps 
 docker ps -a
 
-```bash
+
 
 
 
