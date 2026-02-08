@@ -16,10 +16,22 @@ Make sure you have these installed:
 
 ## How to Run (One Command)
 
-```bash
-git clone https://github.com/<your-username>/zomato-clone.git
-cd repoName
+git clone https://github.com/rajprashant3302/BiteGo.git
+cd BiteGo
 docker-compose up -d --build
+
+## to close server
+
+docker-compose down
+
+## to see all containers
+docker ps 
+docker ps -a
+
+```bash
+
+
+
 
 
 ### to stop the app
