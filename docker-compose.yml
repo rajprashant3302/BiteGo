@@ -17,26 +17,25 @@ services:
   # ----------------- FRONTENDS -----------------
   user-web:
     build: ./apps/user
-    expose:
-      - "3000"
+    ports:
+      - "3001:3000"
 
   vendor-web:
     build: ./apps/vendor
-    expose:
-      - "3000"
+    ports:
+      - "3002:3000"
 
   driver-web:
     build: ./apps/driver
-    expose:
-      - "3000"
+    ports:
+      - "3003:3000"
 
   admin-web:
     build: ./apps/admin
-    expose:
-      - "3000"
+    ports:
+      - "3004:3000"
 
   # ----------------- BACKEND -----------------
-  
   graphql-gateway:
     build: 
       context: .
@@ -52,7 +51,7 @@ services:
 
   auth-service:
     build:
-      context: .  # ✅ Root context allows access to packages/database
+      context: .  
       dockerfile: backend/auth-service/Dockerfile
     env_file: .env
     ports:
@@ -64,7 +63,7 @@ services:
 
   order-service:
     build:
-      context: .  # ✅ Applied fix here
+      context: .
       dockerfile: backend/order-service/Dockerfile
     env_file: .env
     environment:
@@ -74,7 +73,7 @@ services:
 
   earning-service:
     build:
-      context: .  # ✅ Applied fix here
+      context: .
       dockerfile: backend/earning-service/Dockerfile
     env_file: .env
     environment:
@@ -96,10 +95,9 @@ services:
       kafka:
         condition: service_healthy
 
-
   chat-service:
     build:
-      context: .  # ✅ Applied fix here
+      context: .
       dockerfile: backend/chat-service/Dockerfile
     env_file: .env
     depends_on:
@@ -154,8 +152,6 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
-
-  
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
