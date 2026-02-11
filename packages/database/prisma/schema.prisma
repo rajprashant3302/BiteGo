@@ -84,7 +84,7 @@ model User {
   UserID        String          @id @default(uuid())
   Name          String
   Email         String          @unique
-  Phone         String          @unique
+  Phone         String?          @unique
   Role          user_role_enum?
   ProfilePicURL String?
   PasswordHash  String
