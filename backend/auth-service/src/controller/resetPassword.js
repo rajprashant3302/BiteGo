@@ -1,4 +1,4 @@
-const bcrypt = require("bcrypt");
+const bcrypt = require("bcryptjs");
 const { prisma } = require("database");
 const { generateToken, generateVerificationToken, verifyToken } = require("../utils/jwt");
 const { publishEvent } = require("../kafka/producer");

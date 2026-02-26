@@ -17,21 +17,29 @@ services:
   # ----------------- FRONTENDS -----------------
   user-web:
     build: ./apps/user
+    env_file:
+      - .env
     expose:
       - "3000"
 
   vendor-web:
     build: ./apps/vendor
+    env_file:
+      - .env
     expose:
       - "3000"
 
   driver-web:
     build: ./apps/driver
+    env_file:
+      - .env
     expose:
       - "3000"
 
   admin-web:
     build: ./apps/admin
+    env_file:
+      - .env
     expose:
       - "3000"
 
@@ -45,7 +53,7 @@ services:
       - "4000"
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+      - .env
     depends_on:
       - auth-service
       - order-service
@@ -58,7 +66,7 @@ services:
     ports:
       - "5000:5000"
     environment:
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+      - .env
     depends_on:
       - db
 
@@ -68,7 +76,7 @@ services:
       dockerfile: backend/order-service/Dockerfile
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+      - .env
     depends_on:
       - db
 
@@ -78,7 +86,7 @@ services:
       dockerfile: backend/earning-service/Dockerfile
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+      - .env
     depends_on:
       - db
 
@@ -88,7 +96,7 @@ services:
       dockerfile: backend/mailer-service/Dockerfile
     env_file: .env
     environment:
-      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@db:5432/${DB_NAME}?schema=public
+      - .env
       - KAFKAJS_NO_PARTITIONER_WARNING=1
     depends_on:
       db:

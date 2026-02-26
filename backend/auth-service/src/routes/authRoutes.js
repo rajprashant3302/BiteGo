@@ -7,6 +7,7 @@ const reset = require("../controller/resetPassword");
 router.post("/register", authController.initiateRegistration);
 router.get("/verify-email", authController.verifyEmail);
 router.post("/login", authController.login);
+router.post("/google", authController.googleLogin);
 
 router.post("/reset-password", reset.resetPassword);                 
 router.get("/reset-password", reset.showResetPasswordPage);          
