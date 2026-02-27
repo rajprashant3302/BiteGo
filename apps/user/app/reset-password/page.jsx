@@ -90,7 +90,7 @@ export default function ForgotPassword() {
         
         <div className="w-full max-w-md mx-auto md:ml-auto md:mr-12 lg:mr-24">
           <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 tracking-tight mb-4">
-            Forgot Password?
+            Forgot Password ?
           </h1>
           <p className="text-base md:text-lg text-gray-500 leading-relaxed mb-10">
             No worries! Enter the email address associated with your account and we'll send you a secure reset link.
