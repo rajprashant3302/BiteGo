@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "app/reset-password/page.jsx"  ],
   "exclude": ["node_modules"]
 }
