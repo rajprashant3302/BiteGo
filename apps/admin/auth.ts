@@ -27,7 +27,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (!res.ok) throw new Error(data.message || "Login failed");
 
           // 🔒 IMPORTANT: Restrict to ADMIN only
-          if (data.user.role !== "Admin") {
+          const allowedRoles = ["Admin", "SuperAdmin", "Ops", "Support"];
+
+          if (!allowedRoles.includes(data.user.role)) {
             throw new Error("Unauthorized admin access");
           }
 

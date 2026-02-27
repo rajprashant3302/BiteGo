@@ -28,9 +28,11 @@ export async function proxy(req: NextRequest) {
 
   const role = token.role as string;
 
-  if (role !== "Driver" && role !== "Admin") {
-    return NextResponse.redirect(new URL("/unauthorised", req.url));
-  }
+  const allowedRoles = ["SuperAdmin", "Admin","DeliveryPartner"];
+
+if (!allowedRoles.includes(role)) {
+  return NextResponse.redirect(new URL("/unauthorised", req.url));
+}
 
   return NextResponse.next();
 }

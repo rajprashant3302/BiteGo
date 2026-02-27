@@ -6,7 +6,7 @@ export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // 1. Define Public Routes (Login page for admins)
-  const publicRoutes = ["/login", "/unauthorised"];
+  const publicRoutes = ["/login","/register", "/unauthorised"];
   
   if (publicRoutes.some((route) => pathname.startsWith(route)) || pathname.startsWith("/_next") || pathname.startsWith("/api/auth")) {
     return NextResponse.next();
@@ -21,9 +21,11 @@ export async function proxy(req: NextRequest) {
   }
 
   const role = token.role as string;
-  if (role !== "ADMIN") {
-    return NextResponse.redirect(new URL("/unauthorised", req.url));
-  }
+  const allowedRoles = ["SuperAdmin", "Admin", "Ops", "Support"];
+
+if (!allowedRoles.includes(role)) {
+  return NextResponse.redirect(new URL("/unauthorised", req.url));
+}
 
   return NextResponse.next();
 }

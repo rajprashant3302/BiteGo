@@ -27,8 +27,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!res.ok) throw new Error(data.message);
 
         // 🔒 Restrict to VENDOR only
-        if (data.user.role !== "Vendor") {
-          throw new Error("Unauthorized vendor access");
+        const allowedRoles = ["RestaurantOwner", "Admin", "SuperAdmin"];
+        if (!allowedRoles.includes(data.user.role)) {
+          throw new Error("Unauthorized access");
         }
 
         return {

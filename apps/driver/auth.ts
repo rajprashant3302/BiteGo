@@ -28,8 +28,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (!res.ok) throw new Error(data.message);
 
         // 🔒 IMPORTANT: Allow only DRIVER role
-        if (data.user.role !== "DeliveryPartner" &&data.user.role !== "SuperAdmin" ) {
-          throw new Error("Unauthorized access");
+        const allowedRoles = ["SuperAdmin", "Admin", "Ops", "Support", "DeliveryPartner"];
+        if (!allowedRoles.includes(data.user.role)) {
+          throw new Error("Unauthorized  access");
         }
 
         return {
