@@ -23,7 +23,8 @@ export async function middleware(req: NextRequest) {
 
   // 3. Role Check: VENDOR OR ADMIN
   const role = token.role as string;
-  if (role !== "VENDOR" && role !== "ADMIN") {
+  const allowedRoles = ["RestaurantOwner", "Admin", "SuperAdmin"];
+  if (!allowedRoles.includes(role)) {
     // Redirect unauthorized users (e.g., Drivers/Customers trying to access Vendor dashboard)
     return NextResponse.redirect(new URL("/unauthorised", req.url));
   }

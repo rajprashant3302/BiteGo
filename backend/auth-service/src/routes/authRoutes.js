@@ -13,4 +13,6 @@ router.post("/reset-password", reset.resetPassword);
 router.get("/reset-password", reset.showResetPasswordPage);          
 router.post("/reset-password/confirm", reset.confirmResetPassword);
 
+router.put("/update-profile", profile.updateProfile); // <-- Add this line
+
 module.exports = router;
