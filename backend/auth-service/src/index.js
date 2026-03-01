@@ -1,9 +1,8 @@
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-
-// 👇 FIXED: Changed "./routes/auth.routes" to "./routes/authRoutes"
 const authRoutes = require("./routes/authRoutes");
+const vendorRoutes = require("./routes/vendorRoutes");
 const { connectProducer } = require("./kafka/producer");
 
 const app = express();
@@ -12,10 +11,11 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/partner", vendorRoutes);
 
 (async () => {
   try {
-     // Ensure Kafka doesn't crash app if not ready
+     
      try {
        await connectProducer();
      } catch(e) {
