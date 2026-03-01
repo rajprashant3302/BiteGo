@@ -61,7 +61,6 @@ const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
           }
         };
 
-        //verify email
 
 exports.verifyEmail = async (req, res) => {
   try {
@@ -93,7 +92,7 @@ exports.verifyEmail = async (req, res) => {
         PasswordHash: userData.passwordHash,
         Role: userData.role,
         WalletBalance: 0,
-        IsActive: true // Verified!
+        IsActive: true 
       }
     });
 
@@ -107,10 +106,8 @@ exports.verifyEmail = async (req, res) => {
 
     console.log(` User ${newUser.Email} verified and created in DB.`);
 
-    // Fallback URL so the login button always works
     const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost";
 
-    // 🌟 Beautiful, Consistent Success Page
     res.status(200).send(`
       <!DOCTYPE html>
       <html lang="en">
@@ -165,10 +162,8 @@ exports.verifyEmail = async (req, res) => {
   } catch (err) {
     console.error("❌ VERIFY ERROR:", err);
     
-    // Fallback URL for errors
     const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost";
 
-    // 🌟 Consistent Error Page 
     res.status(500).send(`
       <!DOCTYPE html>
       <html lang="en">
@@ -330,7 +325,6 @@ exports.googleLogin = async (req, res) => {
       return res.status(400).json({ message: "Google ID token required" });
     }
 
-    // 🔐 VERIFY WITH GOOGLE
     const ticket = await client.verifyIdToken({
       idToken,
       audience: process.env.GOOGLE_CLIENT_ID,
@@ -352,7 +346,6 @@ exports.googleLogin = async (req, res) => {
       return res.status(401).json({ message: "Google email not verified" });
     }
 
-    // 👇 REMOVED prisma.$transaction COMPLETELY 👇
     
     let user = await prisma.user.findUnique({
       where: { Email: email },
@@ -361,7 +354,6 @@ exports.googleLogin = async (req, res) => {
     let isNew = false;
 
     if (!user) {
-      // 🆕 NEW USER
       user = await prisma.user.create({
         data: {
           Email: email,
@@ -377,7 +369,6 @@ exports.googleLogin = async (req, res) => {
       });
       isNew = true;
     } else {
-      // 🔁 EXISTING USER
       user = await prisma.user.update({
         where: { Email: email },
         data: {
@@ -387,9 +378,7 @@ exports.googleLogin = async (req, res) => {
       });
     }
 
-    // 👆 END OF DATABASE OPERATIONS 👆
 
-    // 📢 PUBLISH EVENT OUTSIDE THE DATABASE CALLS
     if (isNew) {
       try {
         await publishEvent("USER_REGISTERED_SUCCESS", {
