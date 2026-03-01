@@ -1,9 +1,9 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import Navbar from "./Navbar";
-import Footer from "./Footer";
-import Bottompanel from "./Bottompanel";
+// import Navbar from "./Navbar";
+// import Footer from "./Footer";
+// import Bottompanel from "./Bottompanel";
 import SessionWrapper from "./SessionWrapper";
 
 export default function LayoutClient({
@@ -22,10 +22,10 @@ export default function LayoutClient({
 
   return (
     <SessionWrapper>
-      <Navbar />
-      <Bottompanel />
+      {/* <Navbar /> */}
       {children}
-      <Footer />
+      {/* <Footer /> */}
+      {/* <Bottompanel /> */}
     </SessionWrapper>
   );
 }
