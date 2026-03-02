@@ -113,6 +113,24 @@ services:
     depends_on:
       - mongo
 
+  ai-ml-service:
+    build:
+      context: ./backend/ai-ml-service
+      dockerfile: Dockerfile
+    container_name: bitego-ai-ml-service
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_started
+      db:
+        condition: service_started
+      kafka:
+        condition: service_healthy  
+
+    
   # ----------------- DATABASE -----------------
   db:
     image: postgres:15
