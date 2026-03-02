@@ -10,7 +10,8 @@
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
-    "mapbox-gl": "^3.19.0",
+    "framer-motion": "^12.34.3",
+    "lucide-react": "^0.575.0",
     "next": "16.1.4",
     "next-auth": "^5.0.0-beta.30",
     "react": "19.2.3",

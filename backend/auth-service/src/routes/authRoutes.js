@@ -2,6 +2,7 @@
 const express = require("express");
 const router = express.Router();
 const authController = require("../controller/authController");
+const profile = require("../controller/completeProfile");
 const reset = require("../controller/resetPassword");
 const profile=require("../controller/completeProfile");
 const addressController = require("../controller/addressController");

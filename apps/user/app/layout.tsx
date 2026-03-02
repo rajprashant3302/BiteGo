@@ -1,34 +1,31 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
-import LayoutClient from "../components/LayoutClient";
+import './globals.css';
+import { ReactNode } from 'react';
+import { CartProvider } from '@/context/CartContext';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
+import BottomNav from '@/components/layout/BottomNav';
+import CartSidebar from '@/components/cart/CartSidebar';
+import ScheduleModalWrapper from '@/components/modals/ScheduleModalWrapper';
+import AddToast from '@/components/home/AddToast';
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
-
-export const metadata: Metadata = {
-  title: "BiteGo",
-  description: "A Food delivery app",
+export const metadata = {
+  title: 'BiteGo — Food & Delivery',
+  description: 'Order delicious meals from your local favorites.',
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <LayoutClient>{children}</LayoutClient>
+      <body className="min-h-screen bg-[#FDFDFD] font-sans text-gray-900 flex flex-col selection:bg-orange-100">
+        <CartProvider>
+          <Navbar />
+          <CartSidebar />
+          <ScheduleModalWrapper />
+          <AddToast />
+          <div className="flex-1">{children}</div>
+          <Footer />
+          <BottomNav />
+        </CartProvider>
       </body>
     </html>
   );
