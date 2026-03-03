@@ -15,7 +15,7 @@ export default function BottomNav() {
     { icon: Search,      label: 'Search',  href: '/search'  },
     { icon: ShoppingBag, label: 'Order',   onClick: () => setIsCartOpen(true), badge: cartCount },
     { icon: Heart,       label: 'Saved',   href: '/saved'   },
-    { icon: User,        label: 'Account', href: '/profile' },
+    { icon: User,        label: 'Account', href: '/settings' },
   ];
 
   return (

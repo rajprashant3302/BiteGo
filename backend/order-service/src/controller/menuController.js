@@ -12,6 +12,9 @@ exports.getMenu = async (req, res) => {
 
     const menu = await prisma.menuItem.findMany({
       where: { RestaurantID: restaurantId },
+      include: {
+        restaurant: true,
+      },
       orderBy: { ItemName: 'asc' }
     });
 
@@ -22,11 +25,10 @@ exports.getMenu = async (req, res) => {
   }
 };
 
-// backend/order-service/src/controllers/menuController.js
 
 exports.addMenuItem = async (req, res) => {
   try {
-    const { restaurantId, name, description, price, imageUrl, isVeg } = req.body;
+    const { restaurantId, name, description, price, imageUrl, isVeg , availableQuantity } = req.body;
 
     // Validation Check
     if (!restaurantId || !name || !price) {
@@ -42,12 +44,14 @@ exports.addMenuItem = async (req, res) => {
         Price: parseFloat(price) || 0.0, 
         ItemImageURL: imageUrl || null,
         IsVeg: isVeg === true, // Explicit boolean check
-        IsAvailable: true
+        IsAvailable: true,
+        AvailableQuantity: parseInt(availableQuantity) || 0
       }
     });
 
     if (redisClient) {
         await redisClient.del(`restaurant:${restaurantId}:menu`);
+        await redisClient.del("all_restaurants_with_menu");
     }
     
     res.status(201).json({ item: newItem });
@@ -62,26 +66,33 @@ exports.addMenuItem = async (req, res) => {
   }
 };
 
+// backend/order-service/src/controllers/menuController.js
+
+// ... other exports
+
 exports.updateMenuItem = async (req, res) => {
   try {
     const { itemId } = req.params;
-    const { name, description, price, imageUrl, isVeg } = req.body;
+    const { name, description, price, imageUrl, isVeg, isAvailable ,availableQuantity } = req.body;
 
     const updatedItem = await prisma.menuItem.update({
       where: { ItemID: itemId },
       data: {
         ItemName: name,
         Description: description,
-        Price: parseFloat(price),
+        Price: price ? parseFloat(price) : undefined,
         ItemImageURL: imageUrl,
-        IsVeg: isVeg
+        IsVeg: isVeg,
+        IsAvailable: isAvailable ,
+        AvailableQuantity: availableQuantity !== undefined ? parseInt(availableQuantity) : undefined
       }
     });
-
     await redisClient.del(`restaurant:${updatedItem.RestaurantID}:menu`);
+     await redisClient.del("all_restaurants_with_menu");
     res.status(200).json(updatedItem);
   } catch (error) {
-    res.status(500).json({ message: "Update failed." });
+    console.error("Update Error:", error);
+    res.status(500).json({ message: "Update failed.", error: error.message });
   }
 };
 
@@ -93,6 +104,7 @@ exports.deleteMenuItem = async (req, res) => {
 
     await prisma.menuItem.delete({ where: { ItemID: itemId } });
     await redisClient.del(`restaurant:${item.RestaurantID}:menu`);
+    await redisClient.del("all_restaurants_with_menu");
     res.status(200).json({ message: "Deleted" });
   } catch (error) {
     res.status(500).json({ message: "Delete failed." });

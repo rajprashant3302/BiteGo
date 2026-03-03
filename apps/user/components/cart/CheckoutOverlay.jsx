@@ -5,7 +5,7 @@ import { Bike } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 
 export default function CheckoutOverlay() {
-  const { isOrdered } = useCart();
+  const { isOrdered, user } = useCart();
 
   return (
     <AnimatePresence>
@@ -20,7 +20,9 @@ export default function CheckoutOverlay() {
             </div>
           </motion.div>
           <h2 className="text-4xl font-black mb-4">Order Placed!</h2>
-          <p className="text-orange-100 font-bold text-lg mb-8">Alex, your delicious food is on its way.</p>
+          <p className="text-orange-100 font-bold text-lg mb-8">
+            {user?.name.split(' ')[0]}, your delicious food is on its way.
+          </p>
           <div className="w-full max-w-xs bg-white/10 h-1.5 rounded-full overflow-hidden">
             <motion.div
               initial={{ width: 0 }} animate={{ width: '100%' }} transition={{ duration: 2.8 }}
