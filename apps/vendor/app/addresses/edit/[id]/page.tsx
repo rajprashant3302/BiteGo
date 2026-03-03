@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import Map, { Marker } from 'react-map-gl';
+import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { FiArrowLeft, FiMapPin, FiSearch, FiLoader } from "react-icons/fi";
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
+// Set token outside component to avoid re-initialization
+mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
 export default function EditAddressMapPage() {
   const router = useRouter();
@@ -18,24 +19,28 @@ export default function EditAddressMapPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
-  const [viewState, setViewState] = useState({
+  // Core Location State (Centered on India by default, overwritten by fetch)
+  const [location, setLocation] = useState({
     longitude: 78.9629,
     latitude: 20.5937,
-    zoom: 4
   });
-  const [marker, setMarker] = useState(null);
 
+  // Mapbox Refs
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<mapboxgl.Map | null>(null);
+  const markerRef = useRef<mapboxgl.Marker | null>(null);
 
+  // Form & UI State
   const [addressDetails, setAddressDetails] = useState({
     addressLine: "",
     city: "",
     pincode: "",
     isDefault: false
   });
-
   const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState([]);
+  const [searchResults, setSearchResults] = useState<any[]>([]);
 
+  // --- 1. Fetch Existing Address ---
   useEffect(() => {
     if (status === "unauthenticated") {
       router.push("/login");
@@ -45,6 +50,7 @@ export default function EditAddressMapPage() {
     const fetchAddress = async () => {
       if (status === "authenticated" && session?.user?.id) {
         try {
+          // Adjust this URL to match whether you used Option 1 or 2 from earlier!
           const apiUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL 
             ? `${process.env.NEXT_PUBLIC_AUTH_SERVICE_URL}/api/auth/addresses/${session.user.id}`
             : `http://localhost:5000/api/auth/addresses/${session.user.id}`;
@@ -52,7 +58,7 @@ export default function EditAddressMapPage() {
           const response = await fetch(apiUrl);
           if (response.ok) {
             const data = await response.json();
-            const currentAddress = data.find(addr => addr.AddressID === params.id);
+            const currentAddress = data.find((addr: any) => addr.AddressID === params.id);
             
             if (currentAddress) {
               setAddressDetails({
@@ -63,10 +69,10 @@ export default function EditAddressMapPage() {
               });
 
               if (currentAddress.Longitude && currentAddress.Latitude) {
-                const lng = parseFloat(currentAddress.Longitude);
-                const lat = parseFloat(currentAddress.Latitude);
-                setMarker({ longitude: lng, latitude: lat });
-                setViewState({ longitude: lng, latitude: lat, zoom: 15 });
+                setLocation({ 
+                  longitude: parseFloat(currentAddress.Longitude), 
+                  latitude: parseFloat(currentAddress.Latitude) 
+                });
               }
             } else {
               router.push("/addresses");
@@ -83,45 +89,63 @@ export default function EditAddressMapPage() {
     fetchAddress();
   }, [status, session, params.id, router]);
 
-  const handleSearch = async (e) => {
-    const query = e.target.value;
-    setSearchQuery(query);
+  // --- 2. Map Initialization & Marker Updates ---
+  useEffect(() => {
+    // Prevent map initialization until data is fetched and container is rendered
+    if (isLoading || !mapContainerRef.current) return;
 
-    if (query.length > 2) {
-      try {
-        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_TOKEN}&country=IN`);
-        const data = await res.json();
-        setSearchResults(data.features || []);
-      } catch (err) {
-        console.error("Search error", err);
-      }
+    if (!mapRef.current) {
+      mapRef.current = new mapboxgl.Map({
+        container: mapContainerRef.current,
+        style: "mapbox://styles/mapbox/streets-v12",
+        center: [location.longitude, location.latitude],
+        zoom: 15, // Closer zoom since we usually have an exact location for edits
+      });
+
+      const markerEl = document.createElement("div");
+      markerEl.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="#FF651D" stroke="white" stroke-width="1.5" style="width: 40px; height: 40px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); cursor: grab;">
+          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
+          <circle cx="12" cy="10" r="3" fill="white" />
+        </svg>
+      `;
+      markerEl.style.marginTop = "-20px";
+
+      markerRef.current = new mapboxgl.Marker({
+        element: markerEl,
+        draggable: true,
+      })
+        .setLngLat([location.longitude, location.latitude])
+        .addTo(mapRef.current);
+
+      markerRef.current.on("dragend", () => {
+        const lngLat = markerRef.current!.getLngLat();
+        setLocation({ longitude: lngLat.lng, latitude: lngLat.lat });
+        reverseGeocode(lngLat.lng, lngLat.lat);
+      });
     } else {
-      setSearchResults([]);
+      mapRef.current.flyTo({
+        center: [location.longitude, location.latitude],
+        zoom: 15,
+        essential: true,
+      });
+      markerRef.current?.setLngLat([location.longitude, location.latitude]);
     }
-  };
+  }, [location.latitude, location.longitude, isLoading]); 
 
-  const selectLocation = (feature) => {
-    const [lng, lat] = feature.center;
-    setViewState({ longitude: lng, latitude: lat, zoom: 15 });
-    setMarker({ longitude: lng, latitude: lat });
-    setSearchResults([]);
-    setSearchQuery("");
-    reverseGeocode(lng, lat);
-  };
-
-  const reverseGeocode = async (lng, lat) => {
+  // --- 3. Reverse Geocode ---
+  const reverseGeocode = useCallback(async (lng: number, lat: number) => {
     setIsSearching(true);
     try {
-      const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${MAPBOX_TOKEN}`);
+      const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}`);
       const data = await res.json();
       
       if (data.features && data.features.length > 0) {
         const place = data.features[0];
-        
         let city = "";
         let pincode = "";
         
-        place.context?.forEach(ctx => {
+        place.context?.forEach((ctx: any) => {
           if (ctx.id.includes("place") || ctx.id.includes("locality")) city = ctx.text;
           if (ctx.id.includes("postcode")) pincode = ctx.text;
         });
@@ -138,17 +162,40 @@ export default function EditAddressMapPage() {
     } finally {
       setIsSearching(false);
     }
+  }, []);
+
+  // --- 4. Search Places ---
+  const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (query.length > 2) {
+      try {
+        const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${mapboxgl.accessToken}&country=IN`);
+        const data = await res.json();
+        setSearchResults(data.features || []);
+      } catch (err) {
+        console.error("Search error", err);
+      }
+    } else {
+      setSearchResults([]);
+    }
   };
 
-  const onMarkerDragEnd = (event) => {
-    const { lng, lat } = event.lngLat;
-    setMarker({ longitude: lng, latitude: lat });
+  // --- 5. Select Search Result ---
+  const selectLocation = (feature: any) => {
+    const [lng, lat] = feature.center;
+    setLocation({ longitude: lng, latitude: lat });
+    setSearchResults([]);
+    setSearchQuery("");
     reverseGeocode(lng, lat);
   };
 
+  // --- 6. Update Database ---
   const handleUpdate = async () => {
     setIsSaving(true);
     try {
+      // Adjust this URL to match whether you used Option 1 or 2 from earlier!
       const apiUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL 
         ? `${process.env.NEXT_PUBLIC_AUTH_SERVICE_URL}/api/auth/addresses/${params.id}`
         : `http://localhost:5000/api/auth/addresses/${params.id}`;
@@ -161,8 +208,8 @@ export default function EditAddressMapPage() {
           addressLine: addressDetails.addressLine,
           city: addressDetails.city,
           pincode: addressDetails.pincode,
-          latitude: marker?.latitude,
-          longitude: marker?.longitude,
+          latitude: location.latitude,
+          longitude: location.longitude,
           isDefault: addressDetails.isDefault
         })
       });
@@ -186,6 +233,7 @@ export default function EditAddressMapPage() {
   return (
     <div className="h-screen flex flex-col bg-white font-sans relative">
       
+      {/* Search Bar Overlay */}
       <div className="absolute top-0 left-0 w-full z-10 p-4 pt-6 bg-gradient-to-b from-black/50 to-transparent">
         <div className="max-w-xl mx-auto flex items-center space-x-3">
           <button onClick={() => router.back()} className="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-lg text-gray-700 hover:text-[#FF651D] transition-colors shrink-0">
@@ -204,6 +252,7 @@ export default function EditAddressMapPage() {
               className="w-full pl-12 pr-4 py-3.5 bg-white rounded-2xl shadow-lg border-none focus:ring-2 focus:ring-[#FF651D] text-gray-900 font-medium outline-none"
             />
             
+            {/* Search Dropdown Results */}
             {searchResults.length > 0 && (
               <div className="absolute top-full left-0 w-full mt-2 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden max-h-60 overflow-y-auto">
                 {searchResults.map((result) => (
@@ -225,32 +274,12 @@ export default function EditAddressMapPage() {
         </div>
       </div>
 
+      {/* Native Mapbox Container */}
       <div className="flex-grow relative bg-gray-100">
-        <Map
-          {...viewState}
-          onMove={evt => setViewState(evt.viewState)}
-          mapStyle="mapbox://styles/mapbox/streets-v12"
-          mapboxAccessToken={MAPBOX_TOKEN}
-          style={{ width: '100%', height: '100%' }}
-        >
-          {marker && (
-            <Marker 
-              longitude={marker.longitude} 
-              latitude={marker.latitude} 
-              draggable 
-              onDragEnd={onMarkerDragEnd}
-            >
-              <div className="w-10 h-10 -mt-10 -ml-5 drop-shadow-lg cursor-grab active:cursor-grabbing">
-                <svg viewBox="0 0 24 24" fill="#FF651D" stroke="white" strokeWidth="1.5">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" />
-                  <circle cx="12" cy="10" r="3" fill="white" />
-                </svg>
-              </div>
-            </Marker>
-          )}
-        </Map>
+        <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
       </div>
 
+      {/* Bottom Form Sheet */}
       <div className="bg-white rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.08)] relative z-20 px-6 pt-8 pb-10 max-w-xl mx-auto w-full -mt-6">
         <div className="w-12 h-1.5 bg-gray-200 rounded-full mx-auto absolute top-3 left-1/2 transform -translate-x-1/2"></div>
         
@@ -310,7 +339,6 @@ export default function EditAddressMapPage() {
           </button>
         </div>
       </div>
-
     </div>
   );
 }
