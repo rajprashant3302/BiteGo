@@ -8,17 +8,19 @@ import CartItem from './CartItem';
 import CouponSection from './CouponSection';
 import CheckoutOverlay from './CheckoutOverlay';
 
+// ... imports stay same
+
 export default function CartSidebar() {
   const {
     isCartOpen, setIsCartOpen,
     cartItems,
     cartSubtotal, cartTotal, deliveryFee, discountAmount,
-    lastRestaurant,
     deliveryMode,
     scheduledTime,
     setIsScheduleOpen,
     appliedCoupon,
     isOrdered, handleCheckout,
+    user // Using user from context for the overlay
   } = useCart();
 
   return (
@@ -37,14 +39,9 @@ export default function CartSidebar() {
           >
             <div className="p-8 border-b border-gray-100 flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-black flex items-center gap-3">
+                <h2 className="text-2xl font-black flex items-center gap-3 text-gray-900">
                   Your Order <ShoppingBag className="text-orange-500" />
                 </h2>
-                {lastRestaurant && (
-                  <p className="text-xs text-gray-400 font-bold uppercase mt-1 tracking-widest">
-                    From {lastRestaurant.name}
-                  </p>
-                )}
               </div>
               <Button variant="ghost" size="icon" className="bg-gray-100" onClick={() => setIsCartOpen(false)}>
                 <X className="h-5 w-5" />
@@ -80,7 +77,10 @@ export default function CartSidebar() {
                       Change
                     </button>
                   </div>
-                  {cartItems.map(item => <CartItem key={item.id} item={item} />)}
+                  
+                  {/* FIX: Using ItemID as the unique key */}
+                  {cartItems.map(item => <CartItem key={item.ItemID} item={item} />)}
+                  
                   <CouponSection />
                 </div>
               )}
@@ -90,24 +90,18 @@ export default function CartSidebar() {
               <div className="p-8 border-t border-gray-100 bg-gray-50/80 backdrop-blur-sm space-y-4">
                 <div className="space-y-2">
                   <div className="flex justify-between text-gray-500 font-bold text-sm">
-                    <span>Items Subtotal</span><span>${cartSubtotal.toFixed(2)}</span>
+                    <span>Items Subtotal</span><span>₹{cartSubtotal.toFixed(0)}</span>
                   </div>
                   <div className="flex justify-between text-gray-500 font-bold text-sm">
                     <span>Delivery Fee</span>
                     <span className={deliveryMode === 'scheduled' || appliedCoupon?.code === 'FREEDEL' ? 'text-green-600' : ''}>
-                      {deliveryMode === 'scheduled' || appliedCoupon?.code === 'FREEDEL' ? 'FREE' : `$${deliveryFee.toFixed(2)}`}
+                      {deliveryMode === 'scheduled' || appliedCoupon?.code === 'FREEDEL' ? 'FREE' : `₹${deliveryFee.toFixed(0)}`}
                     </span>
                   </div>
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-green-600 font-black text-sm">
-                      <span className="flex items-center gap-1.5"><BadgePercent size={16} /> Discount Applied</span>
-                      <span>-${discountAmount.toFixed(2)}</span>
-                    </div>
-                  )}
                 </div>
                 <div className="flex justify-between text-2xl font-black text-gray-900 pt-2 border-t border-gray-200/50">
                   <span>Total</span>
-                  <span className="text-orange-500">${cartTotal.toFixed(2)}</span>
+                  <span className="text-orange-500">₹{cartTotal.toFixed(0)}</span>
                 </div>
                 <Button
                   className="w-full h-16 text-lg rounded-[24px] shadow-xl shadow-orange-500/20"
@@ -118,9 +112,6 @@ export default function CartSidebar() {
                     ? <span className="flex items-center gap-2"><CheckCircle2 className="animate-bounce" /> Processing...</span>
                     : 'Place Order'}
                 </Button>
-                <p className="text-[10px] text-gray-400 text-center font-bold uppercase tracking-[0.1em]">
-                  By ordering you agree to our Terms of Service
-                </p>
               </div>
             )}
           </motion.div>

@@ -91,7 +91,7 @@ export default function MenuListPage() {
         <div className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden mb-6">
           <div className="px-6 py-5 flex items-center justify-between">
             <button
-              onClick={() => router.push('/dashboard')}
+              onClick={() => router.back()}
               className="flex items-center text-gray-500 hover:text-[#FF651D] transition-colors font-semibold text-sm"
             >
               <FiArrowLeft className="mr-2" size={18} /> Back
@@ -137,7 +137,12 @@ export default function MenuListPage() {
                       {/* Veg/Non-Veg Indicator */}
                       <div className={`w-3 h-3 rounded-full border-2 ${item.IsVeg ? 'border-green-600 bg-green-100' : 'border-red-600 bg-red-100'}`}></div>
                     </div>
-                    <p className="text-sm text-[#FF651D] font-black mt-1">₹{item.Price}</p>
+                    <div className="flex items-center gap-4 mt-2">
+                      <p className="text-sm text-[#FF651D] font-black">₹{item.Price}</p>
+                      <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${item.AvailableQuantity > 0 ? 'bg-slate-100 text-slate-600' : 'bg-red-100 text-red-600'}`}>
+                        Stock: {item.AvailableQuantity}
+                      </span>
+                    </div>
                     <p className="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed">
                       {item.Description || "No description provided."}
                     </p>

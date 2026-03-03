@@ -1,159 +1,141 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { DEALS } from '@/data/deals';
+import { useSession } from 'next-auth/react'; // Assuming you're using NextAuth for session
 
 const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
-  // ── Search ──────────────────────────────────────────
+  const { data: session, status } = useSession();
+  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
+
+  // 1. User Object (Fetched from session)
+  const user = {
+    name: session?.user?.name || "BiteGo User",
+    email: session?.user?.email || "No email provided",
+    phone: session?.user?.phone || "Update your phone number",
+    profilePic: session?.user?.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.name || 'User'}`,
+    role: session?.user?.role || "User",
+  };
+
+  const [cartItems, setCartItems] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [deliveryMode, setDeliveryMode] = useState('quick');
+  const [showAddToast, setShowAddToast] = useState(false);
 
-  // ── Cart ────────────────────────────────────────────
-  const [cartItems,    setCartItems]    = useState([]);
-  const [isCartOpen,   setIsCartOpen]   = useState(false);
-
-  // ── Delivery ────────────────────────────────────────
-  const [deliveryMode,   setDeliveryMode]   = useState('quick'); // 'quick' | 'scheduled'
-  const [scheduledTime,  setScheduledTime]  = useState(null);
-  const [isScheduleOpen, setIsScheduleOpen] = useState(false);
-
-  // ── Coupons ─────────────────────────────────────────
-  const [couponInput,   setCouponInput]   = useState('');
-  const [appliedCoupon, setAppliedCoupon] = useState(null);
-  const [couponError,   setCouponError]   = useState('');
-
-  // ── Misc ────────────────────────────────────────────
-  const [copiedCode,          setCopiedCode]          = useState(null);
-  const [isOrdered,           setIsOrdered]           = useState(false);
-  const [lastAddedRestaurant, setLastAddedRestaurant] = useState(null);
-  const [showAddToast,        setShowAddToast]        = useState(false);
-
-  // Hide toast on scroll
+  // 2. Fetch Saved Cart from Redis on Mount (once authenticated)
   useEffect(() => {
-    const hide = () => { if (showAddToast) setShowAddToast(false); };
-    window.addEventListener('scroll', hide, { passive: true });
-    return () => window.removeEventListener('scroll', hide);
-  }, [showAddToast]);
+    if (status !== 'authenticated' || !session?.user?.email) {
+        if (status === 'unauthenticated') setIsLoading(false);
+        return;
+    }
 
-  // ── Cart Actions ────────────────────────────────────
-  const addToCart = (restaurant) => {
+    const fetchSavedCart = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/cart/${session.user.email}`);
+        if (res.ok) {
+          const data = await res.json();
+          setCartItems(Array.isArray(data) ? data : []);
+        }
+      } catch (err) {
+        console.error("Failed to load cart from Redis:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    fetchSavedCart();
+  }, [session?.user?.email, status, API_BASE]);
+
+  // 3. Sync to Redis (Debounced)
+  useEffect(() => {
+    // Only sync if user is logged in and we aren't currently loading the initial cart
+    if (status !== 'authenticated' || !session?.user?.email || isLoading) return;
+
+    const syncTimeout = setTimeout(async () => {
+      try {
+        await fetch(`${API_BASE}/api/cart/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            userId: session.user.email, 
+            items: cartItems 
+          }),
+        });
+      } catch (err) {
+        console.error("Redis Sync Failed:", err);
+      }
+    }, 1000);
+
+    return () => clearTimeout(syncTimeout);
+  }, [cartItems, session?.user?.email, status, isLoading, API_BASE]);
+
+  // ── CART ACTIONS ────────────────────────────────────
+  const addToCart = (item) => {
     setCartItems(prev => {
-      const existing = prev.find(item => item.id === restaurant.id);
-      if (existing)
-        return prev.map(item => item.id === restaurant.id ? { ...item, quantity: item.quantity + 1 } : item);
-      return [...prev, { ...restaurant, quantity: 1 }];
+      const existing = prev.find(i => i.ItemID === item.ItemID);
+      if (existing) {
+        return prev.map(i => 
+          i.ItemID === item.ItemID ? { ...i, quantity: i.quantity + 1 } : i
+        );
+      }
+      return [...prev, { ...item, quantity: 1 }];
     });
-    setLastAddedRestaurant(restaurant);
     setShowAddToast(true);
   };
 
-  const removeFromCart = (id) => setCartItems(prev => prev.filter(item => item.id !== id));
+  const removeFromCart = (itemId) => {
+    setCartItems(prev => {
+      const existing = prev.find(i => i.ItemID === itemId);
+      if (existing?.quantity > 1) {
+        return prev.map(i => 
+          i.ItemID === itemId ? { ...i, quantity: i.quantity - 1 } : i
+        );
+      }
+      return prev.filter(i => i.ItemID !== itemId);
+    });
+  };
 
-  const updateQuantity = (id, delta) =>
-    setCartItems(prev =>
-      prev.map(item =>
-        item.id !== id ? item : { ...item, quantity: Math.max(1, item.quantity + delta) }
-      )
-    );
-
-  // ── Coupon Actions ──────────────────────────────────
-  const handleApplyCoupon = () => {
-    setCouponError('');
-    const code = couponInput.toUpperCase().trim();
-    if (!code) return;
-    const found = DEALS.find(d => d.code === code);
-    if (found) {
-      setAppliedCoupon(found);
-      setCouponInput('');
-    } else {
-      setCouponError('Invalid or expired coupon code');
+ const clearCart = async () => {
+  setCartItems([]); // Update UI immediately
+  
+  if (status === 'authenticated' && session?.user?.email) {
+    try {
+      // Use the session email directly for consistency
+      await fetch(`${API_BASE}/api/cart/${session.user.email}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.error("Failed to clear Redis cart:", err);
     }
-  };
+  }
+};
 
-  const removeCoupon = () => setAppliedCoupon(null);
-
-  // ── Schedule Actions ────────────────────────────────
-  const handleScheduleConfirm = (val) => {
-    setScheduledTime(val);
-    setDeliveryMode('scheduled');
-  };
-
-  // ── Copy Code ───────────────────────────────────────
-  const copyCode = (code) => {
-    if (navigator.clipboard) navigator.clipboard.writeText(code).catch(() => {});
-    setCopiedCode(code);
-    setTimeout(() => setCopiedCode(null), 2000);
-  };
-
-  // ── Checkout ────────────────────────────────────────
-  const handleCheckout = () => {
-    setIsOrdered(true);
-    setTimeout(() => {
-      setIsOrdered(false);
-      setCartItems([]);
-      setIsCartOpen(false);
-      setAppliedCoupon(null);
-    }, 3000);
-  };
-
-  // ── Derived Values ───────────────────────────────────
-  const cartCount    = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const cartSubtotal = cartItems.reduce((acc, item) => acc + item.price * item.quantity, 0);
-  const deliveryFee  = deliveryMode === 'scheduled' ? 0 : 2.99;
-
-  const discountAmount = useMemo(() => {
-    if (!appliedCoupon) return 0;
-    const { discount } = appliedCoupon;
-    if (discount.type === 'percent') {
-      const calc = (cartSubtotal * discount.value) / 100;
-      return discount.max ? Math.min(calc, discount.max) : calc;
-    }
-    if (discount.type === 'fixed') {
-      if (appliedCoupon.code === 'FREEDEL') return deliveryFee;
-      return discount.value;
-    }
-    return 0;
-  }, [appliedCoupon, cartSubtotal, deliveryFee]);
-
-  const cartTotal = Math.max(0, cartSubtotal + deliveryFee - discountAmount);
-
-  const lastRestaurant = cartItems.length > 0 ? cartItems[cartItems.length - 1] : null;
+  // ── CALCULATIONS ────────────────────────────────────
+  const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
+  const cartSubtotal = cartItems.reduce((acc, item) => acc + (parseFloat(item.Price) * item.quantity), 0);
+  const deliveryFee = deliveryMode === 'quick' ? 2.99 : 0;
+  const cartTotal = cartSubtotal + deliveryFee;
 
   return (
-    <CartContext.Provider
-      value={{
-        // search
-        searchQuery, setSearchQuery,
-        // cart
-        cartItems, cartCount, cartSubtotal, cartTotal, deliveryFee, discountAmount,
-        lastRestaurant,
-        isCartOpen, setIsCartOpen,
-        addToCart, removeFromCart, updateQuantity,
-        // delivery
-        deliveryMode, setDeliveryMode,
-        scheduledTime,
-        isScheduleOpen, setIsScheduleOpen,
-        handleScheduleConfirm,
-        // coupon
-        couponInput, setCouponInput,
-        appliedCoupon,
-        couponError, setCouponError,
-        handleApplyCoupon, removeCoupon,
-        // misc
-        copiedCode, copyCode,
-        isOrdered, handleCheckout,
-        lastAddedRestaurant,
-        showAddToast, setShowAddToast,
-      }}
-    >
+    <CartContext.Provider value={{
+      user,
+      status, // 'authenticated', 'loading', or 'unauthenticated'
+      searchQuery, setSearchQuery,
+      cartItems, cartCount, cartSubtotal, cartTotal, deliveryFee,
+      isCartOpen, setIsCartOpen,
+      addToCart, removeFromCart, clearCart,
+      deliveryMode, setDeliveryMode,
+      showAddToast, setShowAddToast
+    }}>
       {children}
     </CartContext.Provider>
   );
 }
 
-export function useCart() {
-  const ctx = useContext(CartContext);
-  if (!ctx) throw new Error('useCart must be used inside <CartProvider>');
-  return ctx;
-}
+export const useCart = () => {
+  const context = useContext(CartContext);
+  if (!context) throw new Error('useCart must be used inside <CartProvider>');
+  return context;
+};

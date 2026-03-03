@@ -1,12 +1,13 @@
 'use client';
 
-import { Search, ShoppingBag, User, Zap, Clock } from 'lucide-react';
+import { Search, ShoppingBag, User, Zap, Clock, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/components/ui/cn';
 import Button from '@/components/ui/Button';
 import BiteGoLogo from '@/components/layout/BiteGoLogo';
 import { useCart } from '@/context/CartContext';
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function Navbar() {
   const {
@@ -15,12 +16,15 @@ export default function Navbar() {
     scheduledTime, setIsScheduleOpen,
     setIsCartOpen,
     cartCount, cartTotal,
+    user,   // Pulled from your updated CartContext
+    status  // Pulled from your updated CartContext
   } = useCart();
 
   return (
     <header className="sticky top-0 z-[80] w-full bg-white/80 md:bg-white/90 backdrop-blur-xl border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 md:px-6 h-20 flex items-center justify-between">
 
+        {/* Logo Section */}
         <Link href="/" className="flex items-center gap-3 group">
           <BiteGoLogo size={160} className="group-hover:scale-110 transition-transform duration-300" />
           <div className="hidden sm:flex flex-col -gap-1">
@@ -33,6 +37,7 @@ export default function Navbar() {
           </div>
         </Link>
 
+        {/* Desktop Search */}
         <div className="hidden md:flex items-center flex-1 max-w-md mx-8">
           <div className="relative w-full group">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 group-focus-within:text-orange-500 transition-colors" />
@@ -47,6 +52,7 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
+          {/* Delivery Toggle */}
           <div className="hidden lg:flex items-center bg-gray-100 rounded-2xl p-1.5 gap-1 shadow-inner">
             <button
               onClick={() => setDeliveryMode('quick')}
@@ -70,13 +76,40 @@ export default function Navbar() {
             </button>
           </div>
 
-          <Button variant="ghost" size="icon" className="hidden sm:flex bg-gray-100">
-            <User className="h-5 w-5" />
-          </Button>
+          {/* ── USER PROFILE SECTION ── */}
+          <div className="hidden sm:flex items-center gap-3 pl-2 border-l border-gray-100 ml-2">
+            {status === 'loading' ? (
+              <div className="h-10 w-10 rounded-2xl bg-gray-100 animate-pulse" />
+            ) : status === 'authenticated' ? (
+              <button className="flex items-center gap-3 p-1 pr-3 hover:bg-gray-50 rounded-2xl transition-all group">
+                <div className="relative h-10 w-10 rounded-2xl overflow-hidden border-2 border-white shadow-sm group-hover:border-orange-500/20 transition-all">
+                  <img
+                    src={user.profilePic}
+                    alt={user.name}
+                    className="object-cover w-full h-full"
+                  />
+                </div>
+                <div className="hidden xl:flex flex-col items-start">
+                  <span className="text-[11px] font-black text-gray-900 leading-none truncate max-w-[80px]">
+                    {user.name.split(' ')[0]}
+                  </span>
+                  <span className="text-[9px] font-bold text-orange-500 uppercase tracking-tighter">
+                    {user.role}
+                  </span>
+                </div>
+                <ChevronDown size={14} className="text-gray-400 group-hover:text-orange-500 transition-colors" />
+              </button>
+            ) : (
+              <Button variant="ghost" size="icon" className="bg-gray-100 rounded-2xl" onClick={() => router.push('/login')}>
+                <User className="h-5 w-5 text-gray-600" />
+              </Button>
+            )}
+          </div>
 
+          {/* Cart Button */}
           <Button
             variant="dark"
-            className="rounded-2xl pl-4 pr-6 h-12 gap-3"
+            className="rounded-2xl pl-4 pr-6 h-12 gap-3 shadow-lg shadow-gray-200"
             onClick={() => setIsCartOpen(true)}
           >
             <div className="relative">
@@ -86,7 +119,7 @@ export default function Navbar() {
                   <motion.div
                     key={cartCount}
                     initial={{ scale: 0 }} animate={{ scale: 1 }} exit={{ scale: 0 }}
-                    className="absolute -top-2.5 -right-2.5 w-6 h-6 bg-orange-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-white"
+                    className="absolute -top-2.5 -right-2.5 w-6 h-6 bg-orange-500 text-white text-[10px] font-black rounded-full flex items-center justify-center border-2 border-gray-900"
                   >
                     {cartCount}
                   </motion.div>
@@ -94,7 +127,7 @@ export default function Navbar() {
               </AnimatePresence>
             </div>
             <span className="hidden sm:inline font-black uppercase text-xs tracking-widest">
-              ${cartTotal.toFixed(2)}
+              ₹{cartTotal.toFixed(0)}
             </span>
           </Button>
         </div>
