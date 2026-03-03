@@ -1,5 +1,6 @@
 import './globals.css';
 import { ReactNode } from 'react';
+import SessionWrapper from '@/components/SessionWrapper'; 
 import { CartProvider } from '@/context/CartContext';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -17,15 +18,19 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <body className="min-h-screen bg-[#FDFDFD] font-sans text-gray-900 flex flex-col selection:bg-orange-100">
-        <CartProvider>
-          <Navbar />
-          <CartSidebar />
-          <ScheduleModalWrapper />
-          <AddToast />
-          <div className="flex-1">{children}</div>
-          <Footer />
-          <BottomNav />
-        </CartProvider>
+        
+        <SessionWrapper> 
+          <CartProvider>
+            <Navbar />
+            <CartSidebar />
+            <ScheduleModalWrapper />
+            <AddToast />
+            <div className="flex-1">{children}</div>
+            <Footer />
+            <BottomNav />
+          </CartProvider>
+        </SessionWrapper>
+
       </body>
     </html>
   );
