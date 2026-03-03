@@ -10,12 +10,17 @@ RUN rm -rf node_modules package-lock.json
 RUN npm install
 RUN npx prisma generate
 
+# Copy and setup redis 
+WORKDIR /app
+COPY packages/redis ./packages/redis
+
 # 2. SETUP ORDER SERVICE
 WORKDIR /app/backend/order-service
 COPY backend/order-service/package.json ./
 
 RUN npm install
 RUN npm install ../../packages/database
+RUN npm install ../../packages/redis
 
 COPY backend/order-service .
 

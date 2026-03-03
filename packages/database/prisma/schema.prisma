@@ -162,6 +162,7 @@ model Restaurant {
 model MenuItem {
   ItemID            String   @id @default(uuid())
   ItemName          String?
+  Description       String?    @db.Text
   ItemImageURL      String?
   Price             Decimal?
   IsVeg             Boolean?
