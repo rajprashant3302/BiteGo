@@ -14,7 +14,7 @@ export default function AddToast() {
           initial={{ opacity: 0, y: 50 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 50 }}
-          className="fixed bottom-28 left-0 right-0 z-[150] flex justify-center px-4 pointer-events-none"
+          className="fixed left-0 right-0 z-[200] flex justify-center px-4 pointer-events-none bottom-[calc(92px+env(safe-area-inset-bottom))] md:bottom-28"
         >
           <div className="bg-gray-900 text-white px-6 py-3 rounded-2xl shadow-2xl flex items-center gap-3 border border-white/10 pointer-events-auto max-w-sm w-full mx-auto">
             <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center shrink-0">

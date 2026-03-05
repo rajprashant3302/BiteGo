@@ -7,18 +7,20 @@ import Button from '@/components/ui/Button';
 import Categories from './Categories';
 import DealsBanner from './DealsBanner';
 import RestaurantCard from './RestaurantCard';
+import ChatButton from "../ChatButton";
 import { useCart } from '@/context/CartContext';
 import { useRouter } from "next/navigation";
 
 export default function HomeView() {
-  const { 
-    searchQuery, 
-    setSearchQuery, 
-    deliveryMode, 
-    setDeliveryMode, 
-    setIsScheduleOpen, 
-    scheduledTime 
-  } = useCart();
+ const {
+  user,           
+  searchQuery,
+  setSearchQuery,
+  deliveryMode,
+  setDeliveryMode,
+  setIsScheduleOpen,
+  scheduledTime
+} = useCart();
 
   const [activeCategory, setActiveCategory] = useState('All');
   const [favorites, setFavorites] = useState([]);
@@ -79,9 +81,9 @@ export default function HomeView() {
       prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
     );
   };
-
-  return (
-    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-32 md:pb-12 space-y-12 overflow-hidden">
+return (
+  <>
+    <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-[calc(120px+env(safe-area-inset-bottom))] md:pb-12 space-y-12 overflow-hidden">
       <style>{`
         @keyframes wave {
           0%, 60%, 100% { transform: rotate(0deg); }
@@ -100,10 +102,15 @@ export default function HomeView() {
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
           <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight leading-none">
-            {greeting}, <span className="text-orange-500">Alex</span>
+           {greeting},{" "}
+              <span className="text-orange-500">
+                {(user?.name || "BiteGo User").split(" ")[0]}
+              </span>
             <span className="inline-block animate-wave ml-2 origin-bottom-right">👋</span>
           </h1>
-          <p className="text-gray-500 text-lg font-medium">Ready to bite into something new?</p>
+          <p className="text-gray-500 text-lg font-medium">
+            Ready to bite into something new?
+          </p>
         </div>
       </section>
 
@@ -112,25 +119,37 @@ export default function HomeView() {
       {/* Main List Section */}
       <section>
         <div className="flex items-center justify-between mb-8">
-          <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Popular Nearby</h2>
-          <Button variant="ghost" className="text-orange-500 font-black uppercase text-xs tracking-widest hover:bg-orange-50">
+          <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">
+            Popular Nearby
+          </h2>
+          <Button
+            variant="ghost"
+            className="text-orange-500 font-black uppercase text-xs tracking-widest hover:bg-orange-50"
+          >
             See All <ChevronRight size={16} className="ml-1" />
           </Button>
         </div>
 
-        <Categories activeCategory={activeCategory} setActiveCategory={setActiveCategory} />
+        <Categories
+          activeCategory={activeCategory}
+          setActiveCategory={setActiveCategory}
+        />
 
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="animate-spin text-orange-500 mb-4" size={44} />
-            <p className="text-gray-400 font-black animate-pulse uppercase tracking-widest">Finding the best bites...</p>
+            <p className="text-gray-400 font-black animate-pulse uppercase tracking-widest">
+              Finding the best bites...
+            </p>
           </div>
         ) : filteredRestaurants.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mt-4">
-            {filteredRestaurants.map(res => (
+            {filteredRestaurants.map((res) => (
               <div
                 key={res.RestaurantID}
-                onClick={() => router.push(`/restaurants/${res.RestaurantID}`)}
+                onClick={() =>
+                  router.push(`/restaurants/${res.RestaurantID}`)
+                }
                 className="cursor-pointer"
               >
                 <RestaurantCard
@@ -144,12 +163,17 @@ export default function HomeView() {
         ) : (
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <XCircle size={64} className="text-gray-200 mb-6" />
-            <h3 className="text-2xl font-black text-gray-900">No Bites Found</h3>
+            <h3 className="text-2xl font-black text-gray-900">
+              No Bites Found
+            </h3>
             <p className="text-gray-500 mt-2 font-medium max-w-xs">
               We couldn't find anything matching "{searchQuery}" in {activeCategory}.
             </p>
             <Button
-              onClick={() => { setSearchQuery(''); setActiveCategory('All'); }}
+              onClick={() => {
+                setSearchQuery("");
+                setActiveCategory("All");
+              }}
               className="mt-8 bg-orange-500 hover:bg-orange-600 text-white font-black px-8 py-4 rounded-2xl shadow-lg"
             >
               Clear Filters
@@ -158,5 +182,9 @@ export default function HomeView() {
         )}
       </section>
     </main>
-  );
+
+    {/* Chat Button */}
+    <ChatButton />
+  </>
+);
 }

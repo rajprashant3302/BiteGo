@@ -35,7 +35,7 @@ export default function BottomNav() {
             >
               <div className="relative">
                 <Icon size={24} strokeWidth={isActive ? 3 : 2} />
-                {item.badge > 0 && (
+                {Number(item.badge || 0) > 0 && (
                   <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-white text-[9px] font-black rounded-full flex items-center justify-center border-2 border-gray-900">
                     {item.badge}
                   </span>
