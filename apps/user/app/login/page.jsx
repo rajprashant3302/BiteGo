@@ -13,7 +13,7 @@ function LoginForm() {
   // 1. Extract the callbackUrl from the browser's address bar
   const rawCallbackUrl = searchParams.get("callbackUrl");
   // Default to /profile if no callbackUrl is provided
-  const callbackUrl = rawCallbackUrl || "/profile"; 
+  const callbackUrl = rawCallbackUrl || "/"; 
 
   // Construct links to pass the callbackUrl forward
   const forgotPasswordUrl = rawCallbackUrl 
