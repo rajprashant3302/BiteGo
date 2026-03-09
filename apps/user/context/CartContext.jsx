@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useMemo } from 'react';
-import { useSession } from 'next-auth/react'; // Assuming you're using NextAuth for session
+import { useSession } from 'next-auth/react';
 
 const CartContext = createContext(null);
 
@@ -9,7 +9,6 @@ export function CartProvider({ children }) {
   const { data: session, status } = useSession();
   const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
 
-  // 1. User Object (Fetched from session)
   const user = {
     name: session?.user?.name || "BiteGo User",
     email: session?.user?.email || "No email provided",
@@ -25,11 +24,11 @@ export function CartProvider({ children }) {
   const [deliveryMode, setDeliveryMode] = useState('quick');
   const [showAddToast, setShowAddToast] = useState(false);
 
-  // 2. Fetch Saved Cart from Redis on Mount (once authenticated)
+  // 1. Fetch Saved Cart from Redis
   useEffect(() => {
     if (status !== 'authenticated' || !session?.user?.email) {
-        if (status === 'unauthenticated') setIsLoading(false);
-        return;
+      if (status === 'unauthenticated') setIsLoading(false);
+      return;
     }
 
     const fetchSavedCart = async () => {
@@ -48,9 +47,8 @@ export function CartProvider({ children }) {
     fetchSavedCart();
   }, [session?.user?.email, status, API_BASE]);
 
-  // 3. Sync to Redis (Debounced)
+  // 2. Sync to Redis (Debounced)
   useEffect(() => {
-    // Only sync if user is logged in and we aren't currently loading the initial cart
     if (status !== 'authenticated' || !session?.user?.email || isLoading) return;
 
     const syncTimeout = setTimeout(async () => {
@@ -80,6 +78,7 @@ export function CartProvider({ children }) {
           i.ItemID === item.ItemID ? { ...i, quantity: i.quantity + 1 } : i
         );
       }
+      // Store the full item, which now includes DiscountedPrice from the backend
       return [...prev, { ...item, quantity: 1 }];
     });
     setShowAddToast(true);
@@ -97,33 +96,48 @@ export function CartProvider({ children }) {
     });
   };
 
- const clearCart = async () => {
-  setCartItems([]); // Update UI immediately
-  
-  if (status === 'authenticated' && session?.user?.email) {
-    try {
-      // Use the session email directly for consistency
-      await fetch(`${API_BASE}/api/cart/${session.user.email}`, {
-        method: 'DELETE',
-      });
-    } catch (err) {
-      console.error("Failed to clear Redis cart:", err);
+  const clearCart = async () => {
+    setCartItems([]);
+    if (status === 'authenticated' && session?.user?.email) {
+      try {
+        await fetch(`${API_BASE}/api/cart/${session.user.email}`, {
+          method: 'DELETE',
+        });
+      } catch (err) {
+        console.error("Failed to clear Redis cart:", err);
+      }
     }
-  }
-};
+  };
 
   // ── CALCULATIONS ────────────────────────────────────
+  
+  // Total number of individual items
   const cartCount = cartItems.reduce((acc, item) => acc + item.quantity, 0);
-  const cartSubtotal = cartItems.reduce((acc, item) => acc + (parseFloat(item.Price) * item.quantity), 0);
-  const deliveryFee = deliveryMode === 'quick' ? 2.99 : 0;
+
+  // Subtotal using DiscountedPrice if it exists, otherwise use base Price
+  const cartSubtotal = cartItems.reduce((acc, item) => {
+    const activePrice = item.DiscountedPrice !== undefined ? parseFloat(item.DiscountedPrice) : parseFloat(item.Price);
+    return acc + (activePrice * item.quantity);
+  }, 0);
+
+  // Added Savings calculation: Original Price - Discounted Price
+  const totalSavings = cartItems.reduce((acc, item) => {
+    if (item.DiscountedPrice !== undefined && item.DiscountedPrice < item.Price) {
+      const saving = (parseFloat(item.Price) - parseFloat(item.DiscountedPrice)) * item.quantity;
+      return acc + saving;
+    }
+    return acc;
+  }, 0);
+
+  const deliveryFee = deliveryMode === 'quick' ? 40 : 0; // Using 40 as a standard delivery charge
   const cartTotal = cartSubtotal + deliveryFee;
 
   return (
     <CartContext.Provider value={{
       user,
-      status, // 'authenticated', 'loading', or 'unauthenticated'
+      status,
       searchQuery, setSearchQuery,
-      cartItems, cartCount, cartSubtotal, cartTotal, deliveryFee,
+      cartItems, cartCount, cartSubtotal, cartTotal, totalSavings, deliveryFee,
       isCartOpen, setIsCartOpen,
       addToCart, removeFromCart, clearCart,
       deliveryMode, setDeliveryMode,
