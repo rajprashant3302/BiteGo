@@ -1,167 +1,195 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useSession, signOut } from "next-auth/react";
 import { 
-  FiChevronRight, FiUser, FiMapPin, FiLogOut, 
-  FiTruck, FiFileText, FiList, FiClock
+  FiChevronRight, FiBox, FiCreditCard, FiUser, 
+  FiMapPin, FiStar, FiTag, FiLogOut, FiLoader,
+  FiBriefcase, FiFileText, FiPieChart, FiTruck, FiList, FiClock 
 } from "react-icons/fi";
 import { MdOutlineAccountBalanceWallet, MdOutlinePayments } from "react-icons/md";
 
-export default function DriverProfilePage() {
-  // Mock Driver Data (Fetch from your backend later)
-  const [isAvailable, setIsAvailable] = useState(false); // Maps to DeliveryPartner.IsAvailable
+export default function ProfileSettingsPage() {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  
+  // Driver-specific states
+  const [isAvailable, setIsAvailable] = useState(false);
+  const [driverStats, setDriverStats] = useState({ todayEarnings: 0, totalDeliveries: 0 });
 
-  const driver = {
-    name: "Rahul Kumar",
-    email: "rahul.driver@example.com",
-    phone: "+91 9876500000",
-    profilePic: "https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul",
-    walletBalance: "₹1,250",
-    vehicleNumber: "BR 01 XX 1234",
+  useEffect(() => {
+    console.log(session?.user)
+    if (status !== "loading" && status === "unauthenticated") {
+    router.push("/login");
+  }
+    // Logic to fetch live driver status if the user is a DeliveryPartner
+    
+    if (session?.user?.role === "DeliveryPartner") {
+    //   // fetchDriverData(); 
+    }
+  }, [status, router, session]);
+
+  if (status === "loading" || status === "unauthenticated") {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <FiLoader className="animate-spin text-[#FF651D]" size={40} />
+      </div>
+    );
+  }
+
+  const user = {
+    name: session?.user?.name || "BiteGo Partner",
+    email: session?.user?.email || "No email provided",
+    profilePic: session?.user?.image || `https://api.dicebear.com/7.x/avataaars/svg?seed=${session?.user?.name}`,
+    role: session?.user?.role, // "User", "DeliveryPartner", "Merchant"
   };
 
-  // Grouping settings for a Delivery Partner
-  const menuGroups = [
+  // --- MENU DEFINITIONS BASED ON ROLE ---
+
+  const userGroups = [
+    {
+      title: "Food & Orders",
+      items: [
+        { name: "Your Orders", icon: <FiBox />, link: "/orders", desc: "Track or view history" },
+        { name: "Saved Addresses", icon: <FiMapPin />, link: "/addresses", desc: "Manage locations" },
+      ]
+    },
+    {
+      title: "Payments",
+      items: [
+        { name: "Wallet History", icon: <MdOutlineAccountBalanceWallet />, link: "/wallet", desc: "Balance & transactions" },
+      ]
+    }
+  ];
+
+  const driverGroups = [
     {
       title: "Deliveries & Earnings",
       items: [
-        { name: "Delivery History", icon: <FiList />, link: "/driver/history", desc: "View all your past deliveries" },
-        { name: "Earnings & Payouts", icon: <MdOutlinePayments />, link: "/driver/earnings", desc: "Track your daily and weekly earnings" },
-        { name: "Wallet Balance", icon: <MdOutlineAccountBalanceWallet />, link: "/wallet", desc: "Manage your BiteGo wallet transactions" },
+        { name: "Delivery History", icon: <FiList />, link: "/driver/history", desc: "View all past deliveries" },
+        { name: "Earnings & Payouts", icon: <MdOutlinePayments />, link: "/driver/earnings", desc: "Track your income" },
+        { name: "Wallet Balance", icon: <MdOutlineAccountBalanceWallet />, link: "/wallet", desc: "Manage BiteGo wallet" },
       ]
     },
     {
       title: "Vehicle & Documents",
       items: [
-        { name: "Vehicle Details", icon: <FiTruck />, link: "/driver/vehicle", desc: `Current Vehicle: ${driver.vehicleNumber}` },
-        { name: "Driving License & PAN", icon: <FiFileText />, link: "/driver/documents", desc: "Manage your registered documents" },
+        { name: "Vehicle Details", icon: <FiTruck />, link: "/driver/vehicle", desc: "Manage your registered vehicle" },
+        { name: "Documents", icon: <FiFileText />, link: "/driver/documents", desc: "Driving License & PAN" },
       ]
-    },
-    {
-      title: "Account Settings",
-      items: [
-        { name: "Account Details", icon: <FiUser />, link: "/profile/details", desc: "Update your personal information" },
-        { name: "Current Zone", icon: <FiMapPin />, link: "/driver/zone", desc: "View your assigned delivery zone" },
-      ]
-    },
+    }
   ];
 
+  const merchantGroups = [
+    {
+      title: "Restaurant Partner",
+      items: [
+        { name: "My Restaurants", icon: <FiBriefcase />, link: "/partner/restaurants", desc: "Manage storefronts" },
+        { name: "Analytics", icon: <FiPieChart />, link: "/partner/analytics", desc: "Order history & stats" },
+      ]
+    }
+  ];
+
+  // Decide which menu to show
+  const activeGroups = user.role === "DeliveryPartner" 
+    ? driverGroups 
+    : user.role === "Merchant" 
+      ? merchantGroups 
+      : userGroups;
+
   return (
-    <div className="min-h-screen bg-gray-50 pb-12 font-sans">
-      
-      {/* Top Header / Profile Card */}
-      <div className="bg-white shadow-sm pt-12 pb-6 px-4 sm:px-8 border-b border-gray-200">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-5">
-            {/* Profile Avatar */}
-            <div className="relative">
-              <div className="w-20 h-20 rounded-full bg-orange-100 border-4 border-white shadow-md overflow-hidden">
-                <img 
-                  src={driver.profilePic} 
-                  alt="Profile" 
-                  className="w-full h-full object-cover"
-                />
+    <div className="min-h-screen bg-gray-50 pt-8 pb-12 font-sans">
+      <div className="max-w-3xl mx-auto px-4 sm:px-0 space-y-6">
+        
+        {/* Profile Card */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+            <div className="flex items-center space-x-5">
+              <div className="w-20 h-20 rounded-full bg-orange-100 border-4 border-gray-50 shadow-sm overflow-hidden">
+                <img src={user.profilePic} alt="Profile" className="w-full h-full object-cover" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-gray-900">{user.name}</h1>
+                <p className="text-gray-500 text-sm font-medium">{user.email}</p>
+                <div className="flex items-center mt-1">
+                    <span className="bg-orange-100 text-[#FF651D] text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wide">
+                        {user.role}
+                    </span>
+                </div>
               </div>
             </div>
-            
-            {/* User Info */}
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{driver.name}</h1>
-              <p className="text-gray-500 text-sm font-medium mt-0.5">{driver.phone}</p>
-              <p className="text-gray-400 text-xs mt-0.5">{driver.email}</p>
+            <Link href="/profile/edit" className="w-full sm:w-auto text-center px-6 py-2.5 bg-[#FFF0E6] text-[#FF651D] font-bold rounded-xl hover:bg-[#FF651D] hover:text-white transition-all">
+              Edit Profile
+            </Link>
+          </div>
+        </div>
+
+        {/* DRIVER SPECIFIC: Duty Status & Quick Stats */}
+        {user.role === "DeliveryPartner" && (
+          <>
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">Duty Status</h2>
+                <p className={`text-sm mt-1 ${isAvailable ? 'text-green-600' : 'text-gray-500'}`}>
+                  {isAvailable ? "Online - Receiving Orders" : "Offline - Go online to earn"}
+                </p>
+              </div>
+              <button 
+                onClick={() => setIsAvailable(!isAvailable)}
+                className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors ${isAvailable ? 'bg-green-500' : 'bg-gray-300'}`}
+              >
+                <span className={`inline-block h-6 w-6 transform rounded-full bg-white transition shadow-sm ${isAvailable ? 'translate-x-7' : 'translate-x-1'}`} />
+              </button>
             </div>
-          </div>
 
-          {/* Edit Profile Button */}
-          <Link 
-            href="/profile/edit" 
-            className="hidden sm:inline-block px-5 py-2.5 bg-[#FFF0E6] text-[#FF651D] font-bold rounded-xl hover:bg-[#FF651D] hover:text-white transition-all duration-300 shadow-sm"
-          >
-            Edit Profile
-          </Link>
-        </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gradient-to-br from-[#FFF0E6] to-white rounded-2xl p-5 border border-orange-100 shadow-sm">
+                <p className="text-xs font-bold text-[#D84A00] uppercase mb-1">Today's Earnings</p>
+                <h3 className="text-2xl font-extrabold text-gray-900">₹{driverStats.todayEarnings}</h3>
+              </div>
+              <div className="bg-gradient-to-br from-green-50 to-white rounded-2xl p-5 border border-green-100 shadow-sm">
+                <p className="text-xs font-bold text-green-700 uppercase mb-1">Deliveries Today</p>
+                <h3 className="text-2xl font-extrabold text-gray-900">{driverStats.totalDeliveries}</h3>
+              </div>
+            </div>
+          </>
+        )}
 
-        {/* Mobile Edit Button (Shows only on small screens) */}
-        <div className="max-w-3xl mx-auto mt-6 sm:hidden">
-          <Link 
-            href="/profile/edit" 
-            className="block w-full text-center py-3 bg-[#FFF0E6] text-[#FF651D] font-bold rounded-xl active:bg-[#FF651D] active:text-white transition-all"
-          >
-            Edit Profile
-          </Link>
-        </div>
-      </div>
-
-      <div className="max-w-3xl mx-auto px-4 sm:px-0 mt-6 space-y-6">
-        
-        {/* ONLINE / OFFLINE TOGGLE CARD (Driver Specific) */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 flex items-center justify-between">
-          <div>
-            <h2 className="text-lg font-bold text-gray-900">Duty Status</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              {isAvailable ? "You are online and receiving orders." : "You are offline. Go online to earn."}
-            </p>
-          </div>
-          
-          {/* Custom Toggle Switch */}
-          <button 
-            onClick={() => setIsAvailable(!isAvailable)}
-            className={`relative inline-flex h-8 w-14 items-center rounded-full transition-colors duration-300 ease-in-out focus:outline-none ${
-              isAvailable ? 'bg-green-500' : 'bg-gray-300'
-            }`}
-          >
-            <span 
-              className={`inline-block h-6 w-6 transform rounded-full bg-white transition duration-300 ease-in-out shadow-sm ${
-                isAvailable ? 'translate-x-7' : 'translate-x-1'
-              }`}
-            />
-          </button>
-        </div>
-
-        {/* Quick Stats (Driver Specific) */}
-        <div className="grid grid-cols-2 gap-4">
-          <div className="bg-gradient-to-br from-[#FFF0E6] to-white rounded-2xl p-5 border border-orange-100 shadow-sm flex flex-col justify-center">
-            <p className="text-xs font-bold text-[#D84A00] uppercase tracking-wider mb-1">Today's Earnings</p>
-            <h3 className="text-2xl font-extrabold text-gray-900">₹450</h3>
-          </div>
-          <div className="bg-gradient-to-br from-green-50 to-white rounded-2xl p-5 border border-green-100 shadow-sm flex flex-col justify-center">
-            <p className="text-xs font-bold text-green-700 uppercase tracking-wider mb-1">Total Deliveries</p>
-            <h3 className="text-2xl font-extrabold text-gray-900">12</h3>
-          </div>
-        </div>
-
-        {/* Render Driver Settings Groups */}
-        {menuGroups.map((group, idx) => (
+        {/* Dynamic Menu Groups */}
+        {activeGroups.map((group, idx) => (
           <div key={idx} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             <div className="px-6 py-4 border-b border-gray-50 bg-gray-50/50">
               <h2 className="text-sm font-bold text-gray-800 uppercase tracking-wider">{group.title}</h2>
             </div>
             <div className="divide-y divide-gray-50">
-              {group.items.map((item, itemIdx) => (
-                <Link key={itemIdx} href={item.link} className="flex items-center justify-between p-5 hover:bg-orange-50/30 transition-colors group cursor-pointer">
+              {group.items.map((item, i) => (
+                <Link key={i} href={item.link} className="flex items-center justify-between p-5 hover:bg-orange-50/30 transition-colors group">
                   <div className="flex items-center space-x-4">
-                    <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 group-hover:bg-[#FFF0E6] group-hover:text-[#FF651D] transition-colors">
+                    <div className="w-10 h-10 rounded-full bg-gray-50 flex items-center justify-center text-gray-500 group-hover:text-[#FF651D] group-hover:bg-[#FFF0E6]">
                       {React.cloneElement(item.icon, { size: 20 })}
                     </div>
                     <div>
-                      <h3 className="text-base font-semibold text-gray-900 group-hover:text-[#FF651D] transition-colors">{item.name}</h3>
-                      {item.desc && <p className="text-xs text-gray-500 mt-0.5">{item.desc}</p>}
+                      <h3 className="text-base font-semibold text-gray-900 group-hover:text-[#FF651D]">{item.name}</h3>
+                      <p className="text-xs text-gray-500">{item.desc}</p>
                     </div>
                   </div>
-                  <FiChevronRight className="text-gray-400 group-hover:text-[#FF651D]" size={20} />
+                  <FiChevronRight className="text-gray-400 group-hover:text-[#FF651D]" />
                 </Link>
               ))}
             </div>
           </div>
         ))}
 
-        {/* Logout Button */}
-        <button className="w-full mt-8 flex items-center justify-center space-x-2 py-4 bg-white rounded-2xl shadow-sm border border-red-100 text-red-500 font-bold hover:bg-red-50 transition-colors">
+        {/* Logout */}
+        <button 
+          onClick={() => signOut({ callbackUrl: '/login' })}
+          className="w-full flex items-center justify-center space-x-2 py-4 bg-white rounded-2xl shadow-sm border border-red-100 text-red-500 font-bold hover:bg-red-50 transition-colors"
+        >
           <FiLogOut size={20} />
           <span>Log Out</span>
         </button>
-
       </div>
     </div>
   );
