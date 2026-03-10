@@ -20,14 +20,14 @@ export default function ProfileSettingsPage() {
   const [driverStats, setDriverStats] = useState({ todayEarnings: 0, totalDeliveries: 0 });
 
   useEffect(() => {
-    console.log(session?.user)
+    // Only redirect when we are sure the user is not authenticated
     if (status !== "loading" && status === "unauthenticated") {
-    router.push("/login");
-  }
-    // Logic to fetch live driver status if the user is a DeliveryPartner
+      router.push("/login");
+    }
     
+    // Logic to fetch live driver status if the user is a DeliveryPartner
     if (session?.user?.role === "DeliveryPartner") {
-    //   // fetchDriverData(); 
+      // fetchDriverData(); 
     }
   }, [status, router, session]);
 
@@ -68,16 +68,16 @@ export default function ProfileSettingsPage() {
     {
       title: "Deliveries & Earnings",
       items: [
-        { name: "Delivery History", icon: <FiList />, link: "/driver/history", desc: "View all past deliveries" },
-        { name: "Earnings & Payouts", icon: <MdOutlinePayments />, link: "/driver/earnings", desc: "Track your income" },
+        { name: "Delivery History", icon: <FiList />, link: "/history", desc: "View all past deliveries" },
+        { name: "Earnings & Payouts", icon: <MdOutlinePayments />, link: "/earnings", desc: "Track your income" },
         { name: "Wallet Balance", icon: <MdOutlineAccountBalanceWallet />, link: "/wallet", desc: "Manage BiteGo wallet" },
       ]
     },
     {
       title: "Vehicle & Documents",
       items: [
-        { name: "Vehicle Details", icon: <FiTruck />, link: "/driver/vehicle", desc: "Manage your registered vehicle" },
-        { name: "Documents", icon: <FiFileText />, link: "/driver/documents", desc: "Driving License & PAN" },
+        { name: "Vehicle Details", icon: <FiTruck />, link: "/document/vehicle-details", desc: "Manage your registration number" },
+        { name: "Documents", icon: <FiFileText />, link: "/document/documents", desc: "Driving License Details" },
       ]
     }
   ];
