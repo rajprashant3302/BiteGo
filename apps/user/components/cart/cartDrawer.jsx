@@ -4,7 +4,6 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import Button from '@/components/ui/Button';
-import { cn } from '@/components/ui/cn';
 
 export default function CartDrawer() {
   const { 

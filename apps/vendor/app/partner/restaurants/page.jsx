@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { 
   FiArrowLeft, FiPlus, FiBriefcase, FiStar, 
-  FiClock, FiLoader, FiMenu, FiEdit2 
+  FiClock, FiLoader, FiMenu, FiEdit2 ,FiTag
 } from "react-icons/fi";
 
 export default function PartnerRestaurantsPage() {
@@ -116,6 +116,12 @@ export default function PartnerRestaurantsPage() {
                   </Link>
                   <Link href={`/partner/menu/${rest.RestaurantID}`} className="flex items-center justify-center py-2.5 bg-[#FF651D] hover:bg-[#D84A00] text-white font-bold rounded-xl transition-colors text-sm shadow-sm">
                     <FiMenu className="mr-2" size={16} /> Manage Menu
+                  </Link>
+                  <Link 
+                    href={`/partner/offers/${rest.RestaurantID}`} 
+                    className="flex items-center justify-center py-2.5 bg-[#FF651D] hover:bg-[#D84A00] text-white font-bold rounded-xl transition-colors text-sm shadow-sm"
+                  >
+                    <FiTag className="mr-2" size={16} /> Manage Offers
                   </Link>
                 </div>
 

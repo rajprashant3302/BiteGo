@@ -13,7 +13,6 @@ export default function Navbar() {
   const router = useRouter();
   const {
     searchQuery, setSearchQuery,
-    setIsCartOpen,
     cartCount, cartTotal,
     user,
     status
@@ -89,7 +88,7 @@ export default function Navbar() {
           <Button
             variant="dark"
             className="rounded-2xl pl-4 pr-6 h-12 gap-3 shadow-lg shadow-gray-200"
-            onClick={() => setIsCartOpen(true)}
+            onClick={() => router.push('/cart')}
           >
             <div className="relative">
               <ShoppingBag className="h-5 w-5" />
