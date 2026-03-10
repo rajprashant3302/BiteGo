@@ -5,9 +5,10 @@ import { CartProvider } from '@/context/CartContext';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import BottomNav from '@/components/layout/BottomNav';
-import CartSidebar from '@/components/cart/CartSidebar';
+// import CartSidebar from '@/components/cart/CartSidebar';
 import ScheduleModalWrapper from '@/components/modals/ScheduleModalWrapper';
 import AddToast from '@/components/home/AddToast';
+import { Toaster } from 'react-hot-toast';
 
 export const metadata = {
   title: 'BiteGo — Food & Delivery',
@@ -22,10 +23,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <SessionWrapper> 
           <CartProvider>
             <Navbar />
-            <CartSidebar />
+            {/* <CartSidebar /> */}
             <ScheduleModalWrapper />
             <AddToast />
             <div className="flex-1">{children}</div>
+            <Toaster position="bottom-center" reverseOrder={false} />
             <Footer />
             <BottomNav />
           </CartProvider>

@@ -113,7 +113,7 @@ export default function RestaurantDetailsPage() {
       {cartCount > 0 && (
         <div className="fixed bottom-8 left-1/2 -translate-x-1/2 w-[90%] max-w-2xl z-50">
           <div 
-            onClick={() => setIsCartOpen(true)}
+            onClick={() => router.push('/cart')}
             className="bg-orange-500 text-white p-4 rounded-3xl shadow-2xl flex items-center justify-between cursor-pointer"
           >
             <div className="flex items-center gap-4">
