@@ -76,18 +76,7 @@ export default function ProfileSettingsPage() {
     {
       title: "Vehicle & Documents",
       items: [
-        { name: "Vehicle Details", icon: <FiTruck />, link: "/document/vehicle-details", desc: "Manage your registration number" },
-        { name: "Documents", icon: <FiFileText />, link: "/document/documents", desc: "Driving License Details" },
-      ]
-    }
-  ];
-
-  const merchantGroups = [
-    {
-      title: "Restaurant Partner",
-      items: [
-        { name: "My Restaurants", icon: <FiBriefcase />, link: "/partner/restaurants", desc: "Manage storefronts" },
-        { name: "Analytics", icon: <FiPieChart />, link: "/partner/analytics", desc: "Order history & stats" },
+        { name: "Vehicle Details", icon: <FiTruck />, link: "/document", desc: "Manage your Vechile Details" },
       ]
     }
   ];
@@ -95,8 +84,6 @@ export default function ProfileSettingsPage() {
   // Decide which menu to show
   const activeGroups = user.role === "DeliveryPartner" 
     ? driverGroups 
-    : user.role === "Merchant" 
-      ? merchantGroups 
       : userGroups;
 
   return (
