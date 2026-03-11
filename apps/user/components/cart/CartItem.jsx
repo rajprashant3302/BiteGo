@@ -6,7 +6,7 @@ import { useCart } from '@/context/CartContext';
 
 export default function CartItem({ item }) {
   // Using the context actions we aligned with ItemID
-  const { addToCart, removeFromCart } = useCart();
+  const { addToCart, removeFromCart ,removeItemCompletely} = useCart();
 
   if (!item) return null;
 
@@ -45,7 +45,7 @@ export default function CartItem({ item }) {
           </div>
           {/* Complete removal logic can be added to context if needed */}
           <button
-            onClick={() => removeFromCart(item.ItemID)} 
+            onClick={() => removeItemCompletely(item.ItemID)} 
             className="text-gray-300 hover:text-red-500 p-2 transition-colors"
           >
             <Trash2 size={18} />

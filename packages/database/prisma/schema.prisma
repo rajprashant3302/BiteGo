@@ -18,9 +18,6 @@ datasource db {
   url      = "postgresql://neondb_owner:npg_b3FHQDrM8zYJ@ep-twilight-sound-aipfoc84-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 }
 
-//============================
- //  ENUMS
-//============================ 
 
 enum user_role_enum {
   RestaurantOwner
@@ -92,7 +89,7 @@ model User {
   UserID        String          @id @default(uuid())
   Name          String
   Email         String          @unique
-  Phone         String?          @unique
+  Phone         String?         @unique
   Role          user_role_enum?
   ProfilePicURL String?
   PasswordHash  String
@@ -104,15 +101,15 @@ model User {
   zone   ServiceZone? @relation(fields: [ZoneID], references: [ZoneID])
 
   // Relations
-  addresses       Address[]
-  payments        Payment[]
-  orders          Orders[]
-  walletTxns      WalletTransaction[]
-  logins          LoginHistory[]
-  reviews         Review[]
-  supportTickets  SupportTicket[]
-  couponUsages    UserCoupon[]
-  notifications   NotificationInbox[]
+  addresses      Address[]
+  payments       Payment[]
+  orders         Orders[]
+  walletTxns     WalletTransaction[]
+  logins         LoginHistory[]
+  reviews        Review[]
+  supportTickets SupportTicket[]
+  couponUsages   UserCoupon[]
+  notifications  NotificationInbox[]
 
   // Role-based one-to-one relations
   restaurantOwner RestaurantOwner?
@@ -165,12 +162,13 @@ model Restaurant {
   menuItems MenuItem[]
   orders    Orders[]
   reviews   Review[]
+  offers    Offer[]
 }
 
 model MenuItem {
   ItemID            String   @id @default(uuid())
   ItemName          String?
-  Description       String?    @db.Text
+  Description       String?  @db.Text
   ItemImageURL      String?
   Price             Decimal?
   IsVeg             Boolean?
@@ -180,7 +178,8 @@ model MenuItem {
   RestaurantID String
   restaurant   Restaurant @relation(fields: [RestaurantID], references: [RestaurantID])
 
-  orderItems OrderItem[]
+  orderItems     OrderItem[]
+  offerMenuItems OfferMenuItem[]
 }
 
 model DeliveryPartner {
@@ -197,19 +196,7 @@ model DeliveryPartner {
   orders Orders[]
 }
 
-model Payment {
-  PaymentID            String               @id @default(uuid())
-  TotalAmount          Decimal?
-  PaymentMethod        payment_method_enum?
-  PaymentStatus        payment_status_enum?
-  TransactionReference String?
-  PaymentDate          DateTime             @default(now())
 
-  UserID String
-  user   User   @relation(fields: [UserID], references: [UserID])
-
-  orders Orders[]
-}
 
 model Orders {
   OrderID                String             @id @default(uuid())
@@ -228,17 +215,35 @@ model Orders {
   DeliveryPartnerID String?
   deliveryPartner   DeliveryPartner? @relation(fields: [DeliveryPartnerID], references: [DeliveryPartnerID])
 
-  PaymentID String?
-  payment   Payment? @relation(fields: [PaymentID], references: [PaymentID])
+  payments     Payment[]
 
   AddressID String?
   address   Address? @relation(fields: [AddressID], references: [AddressID])
+
+  OfferID String?
+  offer   Offer?  @relation(fields: [OfferID], references: [OfferID])
 
   items          OrderItem[]
   invoice        Invoice?
   reviews        Review[]
   supportTickets SupportTicket[]
   couponUsages   UserCoupon[]
+}
+
+model Payment {
+  PaymentID            String               @id @default(uuid())
+  TotalAmount          Decimal?
+  PaymentMethod        payment_method_enum?
+  PaymentStatus        payment_status_enum?
+  TransactionReference String?              // e.g., UPI Transaction ID or "WALLET_INTERNAL"
+  PaymentDate          DateTime             @default(now())
+
+  UserID String
+  user   User   @relation(fields: [UserID], references: [UserID])
+
+  // Add this:
+  OrderID String
+  order   Orders @relation(fields: [OrderID], references: [OrderID])
 }
 
 model OrderItem {
@@ -263,7 +268,7 @@ model Invoice {
 }
 
 model Review {
-  ReviewID         String @id @default(uuid())
+  ReviewID         String  @id @default(uuid())
   RatingRestaurant Int?
   RatingDelivery   Int?
   ReviewText       String?
@@ -315,6 +320,37 @@ model UserCoupon {
 
   OrderID String
   order   Orders @relation(fields: [OrderID], references: [OrderID])
+}
+
+model Offer {
+  OfferID       String             @id @default(uuid())
+  Title         String
+  Description   String?
+  DiscountType  discount_type_enum
+  DiscountValue Decimal
+  MinOrderValue Decimal            @default(0)
+  MaxDiscount   Decimal? // Crucial for % off (e.g., 50% off up to $10)
+  StartTime     DateTime
+  EndTime       DateTime
+  IsActive      Boolean            @default(true)
+
+  // Scoping the offer
+  RestaurantID String? // If null, it's a global platform-wide offer
+  restaurant   Restaurant? @relation(fields: [RestaurantID], references: [RestaurantID])
+
+  // Relations
+  applicableItems OfferMenuItem[] // For item-specific discounts
+  appliedInOrders Orders[] // To track which order used which automatic offer
+}
+
+model OfferMenuItem {
+  OfferID    String
+  MenuItemID String
+  offer      Offer  @relation(fields: [OfferID], references: [OfferID])
+
+  menuItem MenuItem @relation(fields: [MenuItemID], references: [ItemID])
+
+  @@id([OfferID, MenuItemID])
 }
 
 model NotificationInbox {

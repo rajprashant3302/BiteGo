@@ -1,7 +1,11 @@
 'use client';
 
+<<<<<<< HEAD
 import { useState, useEffect, useRef } from 'react'; // Added useRef
 import { Search, ShoppingBag, User, Zap, Clock, ChevronDown, Loader2, Utensils } from 'lucide-react';
+=======
+import { Search, ShoppingBag, User, ChevronDown } from 'lucide-react';
+>>>>>>> 741a5b43f435e83ea4d7bd27a171591baeebd18f
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/components/ui/cn';
 import Button from '@/components/ui/Button';
@@ -12,16 +16,16 @@ import { useRouter } from 'next/navigation';
 
 export default function Navbar() {
   const router = useRouter();
+<<<<<<< HEAD
   const dropdownRef = useRef(null);
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
+=======
+>>>>>>> 741a5b43f435e83ea4d7bd27a171591baeebd18f
   const {
     searchQuery, setSearchQuery,
-    deliveryMode, setDeliveryMode,
-    scheduledTime, setIsScheduleOpen,
-    setIsCartOpen,
     cartCount, cartTotal,
     user,
     status
@@ -149,37 +153,16 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-4">
-          {/* ... Delivery Toggle, Profile, and Cart remain exactly as you provided ... */}
-          {/* (Skipping internal repeat for brevity, keep your original profile/cart code here) */}
           
-          <div className="hidden lg:flex items-center bg-gray-100 rounded-2xl p-1.5 gap-1 shadow-inner">
-            <button
-              onClick={() => setDeliveryMode('quick')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-wider',
-                deliveryMode === 'quick' ? 'bg-white text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600'
-              )}
-            >
-              <Zap size={14} className={deliveryMode === 'quick' ? 'fill-orange-400' : ''} />
-              Quick
-            </button>
-            <button
-              onClick={() => setIsScheduleOpen(true)}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-wider',
-                deliveryMode === 'scheduled' ? 'bg-white text-indigo-500 shadow-sm' : 'text-gray-400 hover:text-gray-600'
-              )}
-            >
-              <Clock size={14} />
-              {scheduledTime ? scheduledTime.time : 'Schedule'}
-            </button>
-          </div>
-
-          <div className="hidden sm:flex items-center gap-3 pl-2 border-l border-gray-100 ml-2">
+          {/* ── USER PROFILE SECTION ── */}
+          <div className="flex items-center gap-3 pl-2 border-gray-100 ml-2">
             {status === 'loading' ? (
               <div className="h-10 w-10 rounded-2xl bg-gray-100 animate-pulse" />
             ) : status === 'authenticated' ? (
-              <button className="flex items-center gap-3 p-1 pr-3 hover:bg-gray-50 rounded-2xl transition-all group">
+              <button 
+                onClick={() => router.push('/settings')}
+                className="flex items-center gap-3 p-1 pr-3 hover:bg-gray-50 rounded-2xl transition-all group"
+              >
                 <div className="relative h-10 w-10 rounded-2xl overflow-hidden border-2 border-white shadow-sm group-hover:border-orange-500/20 transition-all">
                   <img
                     src={user.profilePic}
@@ -207,7 +190,7 @@ export default function Navbar() {
           <Button
             variant="dark"
             className="rounded-2xl pl-4 pr-6 h-12 gap-3 shadow-lg shadow-gray-200"
-            onClick={() => setIsCartOpen(true)}
+            onClick={() => router.push('/cart')}
           >
             <div className="relative">
               <ShoppingBag className="h-5 w-5" />
