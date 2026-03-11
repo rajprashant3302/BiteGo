@@ -3,18 +3,21 @@
 
 generator client {
   provider = "prisma-client-js"
-  // output   = "../generated/prisma"
+}
+
+generator py_client {
+  provider = "prisma-client-py"
+  // This ensures it doesn't try to run if the environment isn't right
+  interface = "asyncio"
+  recursive_type_depth = 5
+  enable_experimental_decimal = true
 }
 
 datasource db {
   provider = "postgresql"
+  url      = "postgresql://neondb_owner:npg_b3FHQDrM8zYJ@ep-twilight-sound-aipfoc84-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 }
 
-/**
- * ============================
- * ENUMS
- * ============================
- */
 
 enum user_role_enum {
   RestaurantOwner
@@ -68,11 +71,9 @@ enum login_status_enum {
   Failed_Block
 }
 
-/**
- * ============================
- * MODELS
- * ============================
- */
+// ============================
+//  MODELS
+//============================
 
 model ServiceZone {
   ZoneID   String   @id @default(uuid())
