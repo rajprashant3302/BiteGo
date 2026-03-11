@@ -39,5 +39,5 @@ RUN npx prisma generate
 # 4. START
 # --------------------------------------------------------
 WORKDIR /app/backend/graphql-gateway
-EXPOSE 5000
+EXPOSE 4000
 CMD ["npm", "start"]
