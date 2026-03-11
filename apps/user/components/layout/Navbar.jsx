@@ -1,11 +1,7 @@
 'use client';
 
-<<<<<<< HEAD
 import { useState, useEffect, useRef } from 'react'; // Added useRef
 import { Search, ShoppingBag, User, Zap, Clock, ChevronDown, Loader2, Utensils } from 'lucide-react';
-=======
-import { Search, ShoppingBag, User, ChevronDown } from 'lucide-react';
->>>>>>> 741a5b43f435e83ea4d7bd27a171591baeebd18f
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/components/ui/cn';
 import Button from '@/components/ui/Button';
@@ -16,14 +12,11 @@ import { useRouter } from 'next/navigation';
 
 export default function Navbar() {
   const router = useRouter();
-<<<<<<< HEAD
   const dropdownRef = useRef(null);
   const [results, setResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
 
-=======
->>>>>>> 741a5b43f435e83ea4d7bd27a171591baeebd18f
   const {
     searchQuery, setSearchQuery,
     cartCount, cartTotal,
