@@ -1,7 +1,8 @@
 "use client";
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { FiImage, FiArrowLeft, FiLoader, FiCheck } from "react-icons/fi";
+import { FiImage, FiArrowLeft, FiLoader } from "react-icons/fi";
+import { biteToast } from "../app/lib/toast";
 
 export default function MenuForm({ restaurantId, menuId, mode, initialData }) {
     const router = useRouter();
@@ -65,14 +66,16 @@ export default function MenuForm({ restaurantId, menuId, mode, initialData }) {
             });
 
             if (res.ok) {
+                biteToast.success("Menu added Successfully !")
                 router.push(`/partner/menu/${restaurantId}`);
             } else {
                 const errorData = await res.json();
-                alert(`Error: ${errorData.message || "Failed to save item"}`);
+
+                biteToast.error(`Error: ${errorData.message || "Failed to save item"}`);
             }
         } catch (err) {
             console.error(err);
-            alert("Network error. Please check your connection and backend.");
+            biteToast.error(err);
         } finally {
             setIsSaving(false);
         }

@@ -14,10 +14,7 @@ export default function HomeView() {
   const { 
     searchQuery, 
     setSearchQuery, 
-    deliveryMode, 
-    setDeliveryMode, 
-    setIsScheduleOpen, 
-    scheduledTime 
+    user,
   } = useCart();
 
   const [activeCategory, setActiveCategory] = useState('All');
@@ -29,7 +26,6 @@ export default function HomeView() {
   const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
   const router = useRouter();
 
-  // 1. Fetching & Greeting Logic
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
@@ -53,17 +49,28 @@ export default function HomeView() {
     else setGreeting('Good Evening');
   }, [API_BASE]);
 
-  // 2. Memoized Filtering with Rating logic
+  // 2. MEMOIZED FILTERING LOGIC (Fixed & Merged)
   const filteredRestaurants = useMemo(() => {
     return restaurants.filter(r => {
-      // Category Filter: categoryType or 'Top Rated' (Rating > 4.5)
-      const matchCat = activeCategory === 'All' || 
-                       (activeCategory === 'Top Rated' ? parseFloat(r.Rating) >= 4.5 : r.categoryName === activeCategory);
+      // --- A. Category Logic ---
+      let matchCat = false;
 
+      if (activeCategory === 'All') {
+        matchCat = true;
+      } else if (activeCategory === 'Top Rated') {
+        matchCat = parseFloat(r.Rating) >= 4.5;
+      } else if (activeCategory === 'Offers') {
+        // ✅ Checks if there are active offers in the array
+        matchCat = r.offers && r.offers.some(o => o.IsActive);
+      } else {
+        // ✅ Matches specific category names (Pizza, Burgers, etc.)
+        matchCat = r.CategoryName === activeCategory;
+      }
+
+      // --- B. Search Logic ---
       const searchLower = searchQuery.toLowerCase();
-      
-      // Search Filter: matches Name OR any MenuItem Name
       const matchSearch =
+        searchQuery === "" ||
         r.Name?.toLowerCase().includes(searchLower) ||
         (r.menuItems && r.menuItems.some(item =>
           item.ItemName?.toLowerCase().includes(searchLower)
@@ -82,6 +89,7 @@ export default function HomeView() {
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-32 md:pb-12 space-y-12 overflow-hidden">
+      {/* Wave Animation Styles */}
       <style>{`
         @keyframes wave {
           0%, 60%, 100% { transform: rotate(0deg); }
@@ -100,7 +108,7 @@ export default function HomeView() {
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
         <div className="space-y-2">
           <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight leading-none">
-            {greeting}, <span className="text-orange-500">Alex</span>
+            {greeting}, <span className="text-orange-500">{user.name.split(' ')[0]}</span>
             <span className="inline-block animate-wave ml-2 origin-bottom-right">👋</span>
           </h1>
           <p className="text-gray-500 text-lg font-medium">Ready to bite into something new?</p>
@@ -118,6 +126,7 @@ export default function HomeView() {
           </Button>
         </div>
 
+        {/* Categories Component */}
         <Categories activeCategory={activeCategory} setActiveCategory={setActiveCategory} />
 
         {isLoading ? (
@@ -142,6 +151,7 @@ export default function HomeView() {
             ))}
           </div>
         ) : (
+          /* Empty State */
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <XCircle size={64} className="text-gray-200 mb-6" />
             <h3 className="text-2xl font-black text-gray-900">No Bites Found</h3>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, Star, Timer, Plus } from 'lucide-react';
+import { Heart, Star, Timer, Plus, Tag } from 'lucide-react';
 import { cn } from '@/components/ui/cn';
 import Button from '@/components/ui/Button';
 
@@ -13,12 +13,14 @@ export default function RestaurantCard({ restaurant, isFavorite, onToggleFavorit
   // Display rating as 1 decimal place
   const rating = restaurant.Rating ? parseFloat(restaurant.Rating).toFixed(1) : "4.5";
 
-  // Auto-slide logic for menu item images
+  // Logic to find the best current offer for the badge
+  const activeOffer = restaurant.offers?.find(o => o.IsActive) || null;
+
   useEffect(() => {
     if (items.length < 2) return;
     const timer = setInterval(() => {
       setIndex((prev) => (prev + 1) % items.length);
-    }, 4000); // 4 seconds per slide
+    }, 4000);
     return () => clearInterval(timer);
   }, [items.length]);
 
@@ -29,13 +31,13 @@ export default function RestaurantCard({ restaurant, isFavorite, onToggleFavorit
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="group flex flex-col bg-white rounded-[32px] overflow-hidden border-2 border-gray-100/50 shadow-sm hover:shadow-2xl hover:border-orange-500/10 transition-all duration-500 h-full"
+      className="group flex flex-col bg-white rounded-[32px] overflow-hidden border-2 border-gray-100/50 shadow-sm hover:shadow-2xl hover:border-orange-500/10 transition-all duration-500 h-full relative"
     >
       <div className="relative h-56 overflow-hidden bg-gray-100">
         <AnimatePresence mode="wait">
           <motion.img
             key={activeItem?.ItemID || 'default'}
-            src={activeItem?.ItemImageURL || restaurant.ImageURL || "/placeholder.png"}
+            src={activeItem?.ItemImageURL || "/placeholder.png"}
             initial={{ opacity: 0, scale: 1.1 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
@@ -44,23 +46,34 @@ export default function RestaurantCard({ restaurant, isFavorite, onToggleFavorit
           />
         </AnimatePresence>
         
-        {/* Overlay Info for sliding menu item */}
+        {/* Dynamic Offer Badge */}
+        {activeOffer && (
+          <div className="absolute top-4 left-4 z-20">
+            <div className="bg-orange-500 text-white px-3 py-1.5 rounded-xl text-[10px] font-black flex items-center gap-1 shadow-lg animate-bounce">
+              <Tag size={12} className="fill-white" />
+              {activeOffer.DiscountValue}{activeOffer.DiscountType === 'Percentage' ? '%' : '₹'} OFF
+            </div>
+          </div>
+        )}
+
         <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent">
           <div className="absolute bottom-4 left-4 text-white">
-             <motion.div
-               key={`text-${activeItem?.ItemID}`}
-               initial={{ opacity: 0, y: 5 }}
-               animate={{ opacity: 1, y: 0 }}
-             >
+             <motion.div key={`text-${activeItem?.ItemID}`} initial={{ opacity: 0, y: 5 }} animate={{ opacity: 1, y: 0 }}>
                 <p className="text-[10px] font-black uppercase text-orange-400 tracking-widest">Featured Dish</p>
                 <h4 className="font-bold text-lg truncate w-40">{activeItem?.ItemName || "Delicious Eats"}</h4>
-                <p className="font-black text-white">₹{activeItem?.Price || "---"}</p>
+                <div className="flex items-center gap-2">
+                   <p className="font-black text-white">₹{activeItem?.Price || "---"}</p>
+                   {/* Strikethrough price if menu item has a discount logic applied */}
+                   {activeItem?.DiscountedPrice < activeItem?.Price && (
+                     <span className="text-gray-400 line-through text-xs">₹{activeItem.Price}</span>
+                   )}
+                </div>
              </motion.div>
           </div>
         </div>
 
         {/* Floating Rating & Favorite */}
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-4 right-16">
           <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl text-[10px] font-black text-gray-900 flex items-center gap-1.5 shadow-sm border border-gray-100">
             <Star size={13} className="fill-orange-500 text-orange-500" /> {rating}
           </div>
