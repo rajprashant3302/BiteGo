@@ -11,7 +11,7 @@ RUN rm -rf node_modules package-lock.json
 RUN npm install
 
 # Generate all Prisma clients (JS + Python if configured)
-RUN npx prisma generate
+RUN npm install @prisma/client@5.21.0 && npx prisma@5.21.0 generate --generator client
 
 # --------------------------------------------------------
 # 2. SETUP REDIS PACKAGE
