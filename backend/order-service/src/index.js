@@ -4,10 +4,12 @@ const cors = require("cors");
 const { prisma } = require("database");
 const { redisClient } = require("redis-client");
 const cartRoutes = require("./routes/cartRoutes"); // 1. Import cart routes
+const offerRoutes = require("./routes/offerRoutes"); // 1. Import cart routes
 const { connectProducer } = require("./kafka/producer");
 
 const menuRoutes = require("./routes/menuRoutes");
 const resRoutes = require("./routes/resRoutes");
+const orderRoutes = require("./routes/orderRoutes");
 
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -22,6 +24,8 @@ app.get("/", (req, res) => {
 app.use("/api/menu", menuRoutes);
 app.use("/api/restaurants", resRoutes);
 app.use("/api/cart", cartRoutes);
+app.use("/api/offers", offerRoutes);
+app.use("/api/orders", orderRoutes);
 
 app.get("/orders", async (req, res) => {
   try {

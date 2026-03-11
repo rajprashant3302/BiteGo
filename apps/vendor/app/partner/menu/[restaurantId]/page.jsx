@@ -176,7 +176,7 @@ export default function MenuListPage() {
 
             {/* "Add Another" Dashed Button */}
             <button
-              onClick={() => router.push(`/menu/${restaurantId}/add`)}
+              onClick={() => router.push(`/partner/menu/${restaurantId}/add`)}
               className="w-full bg-white border-2 border-dashed border-[#FFDBCB] text-[#FF651D] hover:bg-[#FFF0E6] font-bold py-5 rounded-2xl transition-all flex items-center justify-center mt-6"
             >
               <FiPlus className="mr-2" size={22} /> Add Another Dish

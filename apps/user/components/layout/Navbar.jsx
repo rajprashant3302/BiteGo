@@ -1,23 +1,21 @@
 'use client';
 
-import { Search, ShoppingBag, User, Zap, Clock, ChevronDown } from 'lucide-react';
+import { Search, ShoppingBag, User, ChevronDown } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/components/ui/cn';
 import Button from '@/components/ui/Button';
 import BiteGoLogo from '@/components/layout/BiteGoLogo';
 import { useCart } from '@/context/CartContext';
 import Link from 'next/link';
-import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 
 export default function Navbar() {
+  const router = useRouter();
   const {
     searchQuery, setSearchQuery,
-    deliveryMode, setDeliveryMode,
-    scheduledTime, setIsScheduleOpen,
-    setIsCartOpen,
     cartCount, cartTotal,
-    user,   // Pulled from your updated CartContext
-    status  // Pulled from your updated CartContext
+    user,
+    status
   } = useCart();
 
   return (
@@ -45,43 +43,23 @@ export default function Navbar() {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Hungry for sushi? Search here..."
+              placeholder="Hungry for something? Search here..."
               className="w-full pl-12 pr-4 py-3.5 bg-gray-100 border-2 border-transparent focus:border-orange-500/30 focus:bg-white rounded-2xl outline-none transition-all duration-300 text-sm font-semibold text-gray-800"
             />
           </div>
         </div>
 
         <div className="flex items-center gap-4">
-          {/* Delivery Toggle */}
-          <div className="hidden lg:flex items-center bg-gray-100 rounded-2xl p-1.5 gap-1 shadow-inner">
-            <button
-              onClick={() => setDeliveryMode('quick')}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-wider',
-                deliveryMode === 'quick' ? 'bg-white text-orange-500 shadow-sm' : 'text-gray-400 hover:text-gray-600'
-              )}
-            >
-              <Zap size={14} className={deliveryMode === 'quick' ? 'fill-orange-400' : ''} />
-              Quick
-            </button>
-            <button
-              onClick={() => setIsScheduleOpen(true)}
-              className={cn(
-                'flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all uppercase tracking-wider',
-                deliveryMode === 'scheduled' ? 'bg-white text-indigo-500 shadow-sm' : 'text-gray-400 hover:text-gray-600'
-              )}
-            >
-              <Clock size={14} />
-              {scheduledTime ? scheduledTime.time : 'Schedule'}
-            </button>
-          </div>
-
+          
           {/* ── USER PROFILE SECTION ── */}
-          <div className="hidden sm:flex items-center gap-3 pl-2 border-l border-gray-100 ml-2">
+          <div className="flex items-center gap-3 pl-2 border-gray-100 ml-2">
             {status === 'loading' ? (
               <div className="h-10 w-10 rounded-2xl bg-gray-100 animate-pulse" />
             ) : status === 'authenticated' ? (
-              <button className="flex items-center gap-3 p-1 pr-3 hover:bg-gray-50 rounded-2xl transition-all group">
+              <button 
+                onClick={() => router.push('/settings')}
+                className="flex items-center gap-3 p-1 pr-3 hover:bg-gray-50 rounded-2xl transition-all group"
+              >
                 <div className="relative h-10 w-10 rounded-2xl overflow-hidden border-2 border-white shadow-sm group-hover:border-orange-500/20 transition-all">
                   <img
                     src={user.profilePic}
@@ -110,7 +88,7 @@ export default function Navbar() {
           <Button
             variant="dark"
             className="rounded-2xl pl-4 pr-6 h-12 gap-3 shadow-lg shadow-gray-200"
-            onClick={() => setIsCartOpen(true)}
+            onClick={() => router.push('/cart')}
           >
             <div className="relative">
               <ShoppingBag className="h-5 w-5" />
