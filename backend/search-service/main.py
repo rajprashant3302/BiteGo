@@ -25,7 +25,7 @@ app.add_middleware(
 )
 
 # Initialize Elasticsearch with the specific headers for version 8.x
-ES_HOST = os.getenv("ES_HOST", "http://elasticsearch:9200")
+ES_HOST = os.getenv("ES_HOST", "http://bitego_es:9200")
 es = Elasticsearch(
     [ES_HOST],
     headers={

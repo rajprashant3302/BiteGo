@@ -11,13 +11,16 @@ RUN rm -rf node_modules package-lock.json
 RUN npm install
 
 # Generate all Prisma clients (JS + Python if configured)
-RUN npx prisma generate
+RUN npm install @prisma/client@5.21.0 && npx prisma@5.21.0 generate --generator client
 
 # --------------------------------------------------------
 # 2. SETUP REDIS PACKAGE
 # --------------------------------------------------------
 WORKDIR /app
 COPY packages/redis ./packages/redis
+WORKDIR /app/packages/redis
+# IMPORTANT: Install dependencies for the redis package itself!
+RUN npm install
 
 # --------------------------------------------------------
 # 3. SETUP ORDER SERVICE
@@ -26,14 +29,18 @@ WORKDIR /app/backend/order-service
 COPY backend/order-service/package.json ./
 
 RUN npm install
+
 # Link local packages
 RUN npm install ../../packages/database
 RUN npm install ../../packages/redis
 
 COPY backend/order-service .
 
+WORKDIR /app/packages/database
+RUN npm install @prisma/client@5.21.0 && npx prisma@5.21.0 generate --generator client
 # --------------------------------------------------------
 # 4. START
 # --------------------------------------------------------
+WORKDIR /app/backend/order-service
 EXPOSE 5001        
 CMD ["npm", "start"]
