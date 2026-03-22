@@ -8,7 +8,7 @@ COPY packages/database ./packages/database
 WORKDIR /app/packages/database
 RUN rm -rf node_modules package-lock.json
 RUN npm install
-RUN npm install @prisma/client@5.21.0 && npx prisma@5.21.0 generate --generator client
+RUN npm install @prisma/client@5.21.0 && npx prisma@5.17.0 generate --generator client
 
 # Copy and setup redis 
 WORKDIR /app
@@ -27,7 +27,7 @@ COPY backend/delivery-service .
 
 # 3. GENERATE CLIENT
 WORKDIR /app/packages/database
-RUN npm install @prisma/client@5.21.0 && npx prisma@5.21.0 generate --generator client
+RUN npm install @prisma/client@5.17.0 && npx prisma@5.17.0 generate --generator client
 
 # 4. START
 WORKDIR /app/backend/delivery-service

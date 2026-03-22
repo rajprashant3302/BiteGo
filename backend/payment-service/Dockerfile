@@ -37,7 +37,8 @@ RUN npm install ../../packages/redis
 COPY backend/payment-service .
 
 WORKDIR /app/packages/database
-RUN npm install @prisma/client@5.21.0 && npx prisma@5.21.0 generate --generator client
+RUN npm install @prisma/client@5.17.0 && npx prisma@5.17.0 generate --generator client
+
 # --------------------------------------------------------
 # 4. START
 # --------------------------------------------------------

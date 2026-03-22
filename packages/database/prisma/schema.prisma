@@ -15,7 +15,7 @@ generator py_client {
 
 datasource db {
   provider = "postgresql"
-  url      = "postgresql://neondb_owner:npg_b3FHQDrM8zYJ@ep-twilight-sound-aipfoc84-pooler.c-4.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+  url      = env("DATABASE_URL")
 }
 
 

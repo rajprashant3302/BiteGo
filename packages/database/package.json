@@ -14,10 +14,10 @@
   "devDependencies": {
     "@types/pg": "^8.16.0",
     "dotenv-cli": "^11.0.0",
-    "prisma": "^7.3.0"
+    "prisma": "^5.17.0"
   },
   "dependencies": {
-    "@prisma/client": "^7.3.0",
+    "@prisma/client": "^5.17.0",
     "dotenv": "^17.2.4",
     "express": "^5.2.1"
   }
