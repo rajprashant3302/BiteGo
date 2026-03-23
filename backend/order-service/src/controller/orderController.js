@@ -71,7 +71,7 @@ exports.placeOrder = async (req, res) => {
           throw new Error("Invalid or expired coupon code");
         }
 
-        const couponDiscount = coupon.DiscountType === "Percentage" 
+        const couponDiscount = coupon.DiscountType === "Percentage"
           ? totalAfterCoupon * (Number(coupon.DiscountValue) / 100)
           : Number(coupon.DiscountValue);
 
@@ -159,7 +159,12 @@ exports.placeOrder = async (req, res) => {
       });
     }
 
-    res.status(201).json({ success: true, orderId: result.order.OrderID });
+    res.status(201).json({
+      success: true,
+      orderId: result.order.OrderID,
+      remainingAmount: result.remainingAmount,
+      paymentId: result.secondaryPayment ? result.secondaryPayment.PaymentID : null
+    });
 
   } catch (error) {
     console.error("Order Error:", error);
