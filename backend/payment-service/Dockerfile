@@ -1,4 +1,3 @@
-# backend/auth-service/Dockerfile
 FROM node:20
 
 WORKDIR /app
@@ -7,37 +6,41 @@ WORKDIR /app
 # 1. SETUP DATABASE PACKAGE
 # --------------------------------------------------------
 COPY packages/database ./packages/database
-
-# Install database dependencies
 WORKDIR /app/packages/database
 RUN rm -rf node_modules package-lock.json
 RUN npm install
 
+# Generate all Prisma clients (JS + Python if configured)
+RUN npm install @prisma/client@5.21.0 && npx prisma@5.21.0 generate --generator client
+
 # --------------------------------------------------------
-# 2. SETUP AUTH SERVICE
+# 2. SETUP REDIS PACKAGE
+# --------------------------------------------------------
+WORKDIR /app
+COPY packages/redis ./packages/redis
+WORKDIR /app/packages/redis
+# IMPORTANT: Install dependencies for the redis package itself!
+RUN npm install
+
+# --------------------------------------------------------
+# 3. SETUP ORDER SERVICE
 # --------------------------------------------------------
 WORKDIR /app/backend/payment-service
 COPY backend/payment-service/package.json ./
 
-# Install auth service dependencies
 RUN npm install
 
-# Link the database package
+# Link local packages
 RUN npm install ../../packages/database
+RUN npm install ../../packages/redis
 
-# Copy the rest of the auth service code
 COPY backend/payment-service .
 
-# --------------------------------------------------------
-# 3. GENERATE PRISMA CLIENT (CRITICAL STEP)
-# --------------------------------------------------------
-# We run this AFTER all npm installs to ensure it doesn't get deleted
 WORKDIR /app/packages/database
-RUN npx prisma generate
-
+RUN npm install @prisma/client@5.21.0 && npx prisma@5.21.0 generate --generator client
 # --------------------------------------------------------
 # 4. START
 # --------------------------------------------------------
 WORKDIR /app/backend/payment-service
-EXPOSE 5000
+EXPOSE 5005        
 CMD ["npm", "start"]

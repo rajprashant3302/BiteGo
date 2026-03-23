@@ -1,34 +1,46 @@
-# backend/order-service/Dockerfile
 FROM node:20
 
 WORKDIR /app
 
-# 1. SETUP DATABASE
+# --------------------------------------------------------
+# 1. SETUP DATABASE PACKAGE
+# --------------------------------------------------------
 COPY packages/database ./packages/database
 WORKDIR /app/packages/database
 RUN rm -rf node_modules package-lock.json
 RUN npm install
-RUN npx prisma generate
 
-# Copy and setup redis 
+# Generate all Prisma clients (JS + Python if configured)
+RUN npm install @prisma/client@5.21.0 && npx prisma@5.21.0 generate --generator client
+
+# --------------------------------------------------------
+# 2. SETUP REDIS PACKAGE
+# --------------------------------------------------------
 WORKDIR /app
 COPY packages/redis ./packages/redis
+WORKDIR /app/packages/redis
+# IMPORTANT: Install dependencies for the redis package itself!
+RUN npm install
 
-# 2. SETUP ORDER SERVICE
+# --------------------------------------------------------
+# 3. SETUP ORDER SERVICE
+# --------------------------------------------------------
 WORKDIR /app/backend/order-service
 COPY backend/order-service/package.json ./
 
 RUN npm install
+
+# Link local packages
 RUN npm install ../../packages/database
 RUN npm install ../../packages/redis
 
 COPY backend/order-service .
 
-# 3. GENERATE CLIENT
 WORKDIR /app/packages/database
-RUN npx prisma generate
-
+RUN npm install @prisma/client@5.21.0 && npx prisma@5.21.0 generate --generator client
+# --------------------------------------------------------
 # 4. START
+# --------------------------------------------------------
 WORKDIR /app/backend/order-service
-EXPOSE 5001       
+EXPOSE 5001        
 CMD ["npm", "start"]
