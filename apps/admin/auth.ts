@@ -1,9 +1,13 @@
+// apps/admin/auth.ts
+
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
-const BACKEND_URL = process.env.AUTH_SERVICE_URL || "http://localhost:5000";
+const BACKEND_URL = process.env.AUTH_SERVICE_URL!;
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
+  debug: true,
+
   providers: [
     Credentials({
       name: "Credentials",
@@ -13,36 +17,29 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
 
       async authorize(credentials) {
-        try {
-          const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
-            method: "POST",
-            body: JSON.stringify({
-              email: credentials?.email,
-              password: credentials?.password,
-            }),
-            headers: { "Content-Type": "application/json" },
-          });
+        const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(credentials),
+        });
 
-          const data = await res.json();
-          if (!res.ok) throw new Error(data.message || "Login failed");
+        const data = await res.json();
 
-          // 🔒 IMPORTANT: Restrict to ADMIN only
-          const allowedRoles = ["Admin", "SuperAdmin", "Ops", "Support"];
+        if (!res.ok) throw new Error(data.message);
 
-          if (!allowedRoles.includes(data.user.role)) {
-            throw new Error("Unauthorized admin access");
-          }
-
-          return {
-            id: data.user.id.toString(),
-            email: data.user.email,
-            name: data.user.name,
-            role: data.user.role,
-            accessToken: data.token,
-          };
-        } catch (error: any) {
-          throw new Error(error.message);
+        // 🔒 IMPORTANT: Allow only ADMIN roles
+        const allowedRoles = ["SuperAdmin", "Admin", "Ops", "Support"];
+        if (!allowedRoles.includes(data.user.role)) {
+          throw new Error("Unauthorized access");
         }
+
+        return {
+          id: data.user.id.toString(),
+          email: data.user.email,
+          name: data.user.name,
+          role: data.user.role,
+          accessToken: data.token,
+        };
       },
     }),
   ],
@@ -51,9 +48,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = user.role;
-        token.accessToken = user.accessToken;
+        token.role = (user as any).role;
+        token.accessToken = (user as any).accessToken;
+        token.email = user.email;
+        token.name = user.name;
       }
+
       return token;
     },
 
@@ -61,8 +61,11 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
-        session.user.accessToken = token.accessToken as string;
+        session.user.email = token.email as string;
+        session.user.name = token.name as string;
+        (session.user as any).accessToken = token.accessToken;
       }
+
       return session;
     },
   },
@@ -74,7 +77,6 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   session: {
     strategy: "jwt",
-    maxAge: 8 * 60 * 60, // 🔒 8 hours session for admin
   },
 
   secret: process.env.NEXTAUTH_SECRET,

@@ -19,14 +19,35 @@ const setupChatSocket = (io) => {
         const token = socket.handshake.auth.token;
         const user = await getUserDetailsFromToken(token);
 
-        if (!user) return socket.disconnect();
+        // ✅ CRITICAL FIX 1: Safely handle expired tokens to prevent server crash
+        if (!user || user.logout) {
+            console.log("Disconnecting socket: Invalid or expired token");
+            return socket.disconnect();
+        }
 
         // user.id here refers to the Prisma UserID from NeonDB
         const currentUserId = user.UserID || user.id; 
+        
+        // ✅ CRITICAL FIX 2: Double check ID exists before calling .toString()
+        if (!currentUserId) {
+             return socket.disconnect();
+        }
+
         socket.join(currentUserId.toString());
         onlineUser.add(currentUserId.toString());
 
+        const supportRoles = ["Admin", "SuperAdmin", "Ops", "Support"];
+        if (supportRoles.includes(user.Role)) {
+            socket.join("SUPPORT_INBOX");
+            console.log(`Admin ${user.Name} joined the SUPPORT_INBOX`);
+        }
+
         io.emit('onlineUser', Array.from(onlineUser));
+
+        socket.on('sidebar', async (userId) => {
+            const conversations = await getConversation(userId);
+            socket.emit('conversation', conversations);
+        });
 
         // --- Handle Message Page (Load History using Prisma for User Details) ---
         socket.on('message-page', async (userId) => {
@@ -96,21 +117,25 @@ const setupChatSocket = (io) => {
             const chatHistory = await ConversationModel.findById(conversation._id).populate('messages');
             
             // Emit to both parties
-            [data.sender, data.receiver].forEach(id => io.to(id).emit('message', chatHistory.messages));
-
+            [data.sender, data.receiver].forEach(id => io.to(id.toString()).emit('message', chatHistory.messages));
+            
             // Background AI Analysis
             analyzeMessageWithAI(data?.text).then(async (aiResult) => {
                 if (aiResult) {
                     await MessageModel.findByIdAndUpdate(saveMessage._id, { $set: { aiAnalysis: aiResult } });
                     const updatedChat = await ConversationModel.findById(conversation._id).populate('messages');
-                    [data.sender, data.receiver].forEach(id => io.to(id).emit('message', updatedChat.messages));
+                    
+                    // ✅ CRITICAL FIX 3: Added .toString() here
+                    [data.sender, data.receiver].forEach(id => io.to(id.toString()).emit('message', updatedChat.messages));
                 }
             });
 
             const senderConv = await getConversation(data?.sender);
             const receiverConv = await getConversation(data?.receiver);
-            io.to(data?.sender).emit('conversation', senderConv);
-            io.to(data?.receiver).emit('conversation', receiverConv);
+            
+            // ✅ CRITICAL FIX 4: Added .toString() here
+            io.to(data?.sender.toString()).emit('conversation', senderConv);
+            io.to(data?.receiver.toString()).emit('conversation', receiverConv);
         });
 
         socket.on('disconnect', () => {

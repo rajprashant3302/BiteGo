@@ -22,16 +22,15 @@ const messageSchema = new mongoose.Schema({
     seen: { type: Boolean, default: false },
     msgByUserId: {
         type: String, // Keep as String if Prisma IDs in NeonDB are CUID/UUID
-        required: true,
-        ref: 'User'
+        required: true
     }
 }, {
     timestamps: true
 });
 
 const conversationSchema = new mongoose.Schema({
-    sender: { type: String, required: true, ref: 'User' },
-    receiver: { type: String, required: true, ref: 'User' },
+    sender: { type: String, required: true },
+    receiver: { type: String, required: true},
     messages: [{
         type: mongoose.Schema.ObjectId,
         ref: 'message'

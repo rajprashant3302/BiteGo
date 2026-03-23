@@ -7,7 +7,7 @@ const SupportIcon = ({ socket, senderId }) => {
     const [isOpen, setIsOpen] = useState(false);
     
     // In a real support app, the receiverId is usually a fixed "Admin" or "Support" ID
-    const supportAdminId = "SUPPORT_AGENT_PRISMA_ID"; 
+    const supportAdminId = "SUPPORT_INBOX"; 
 
     return (
         <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">

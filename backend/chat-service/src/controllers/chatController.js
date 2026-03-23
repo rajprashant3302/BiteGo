@@ -16,7 +16,7 @@ const sendMessage = async (req, res) => {
         const { senderId, receiverId, text, imageUrl, videoUrl } = req.body;
 
         // 1. Validate users in Prisma (NeonDB)
-        const senderExists = await prisma.user.findUnique({ where: { id: senderId } });
+        const senderExists = await prisma.user.findUnique({ where: { UserID: senderId } });
         if (!senderExists) return res.status(404).json({ message: "Sender not found" });
 
         // 2. Perform AI Analysis on the text
