@@ -27,18 +27,22 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         if (!res.ok) throw new Error(data.message);
 
+        // ✅ FIX: Check for both lowercase and Prisma's PascalCase
+        const userRole = data.user.role || data.user.Role;
+
         // 🔒 IMPORTANT: Allow only ADMIN roles
         const allowedRoles = ["SuperAdmin", "Admin", "Ops", "Support"];
-        if (!allowedRoles.includes(data.user.role)) {
+        if (!allowedRoles.includes(userRole)) {
           throw new Error("Unauthorized access");
         }
 
         return {
-          id: data.user.id.toString(),
-          email: data.user.email,
-          name: data.user.name,
-          role: data.user.role,
-          accessToken: data.token,
+          // ✅ FIX: Fallbacks added here too
+          id: (data.user.id || data.user.UserID).toString(),
+          email: data.user.email || data.user.Email,
+          name: data.user.name || data.user.Name,
+          role: userRole,
+          accessToken: data.token || data.accessToken,
         };
       },
     }),

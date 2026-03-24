@@ -5,6 +5,7 @@ const { publishEvent } = require("../kafka/producer");
 
 const FRONTEND_URL = process.env.FRONTEND_URL || "http://localhost";
 const LOGIN_URL = `${FRONTEND_URL.replace(/\/$/, "")}/login`;
+const AUTH_SERVICE_URL = process.env.AUTH_SERVICE_URL || "http://localhost:5000";
 
 
 exports.resetPassword = async (req, res) => {
@@ -32,7 +33,7 @@ exports.resetPassword = async (req, res) => {
 
     await publishEvent("RESET_PASSWORD_INITIATED", {
       email,
-      verificationLink: `http://${AUTH_SERVICE_URL}/api/auth/reset-password?token=${resetToken}`
+      verificationLink: `${AUTH_SERVICE_URL}/api/auth/reset-password?token=${resetToken}`
     });
 
     console.log(`📨 Reset password email sent to ${email}`);

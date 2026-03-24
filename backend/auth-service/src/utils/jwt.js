@@ -29,4 +29,14 @@ const verifyToken = (token) => {
   return jwt.verify(token, JWT_SECRET);
 };
 
-module.exports = { generateToken, generateVerificationToken, verifyToken };
+// NEW: For 48-hour Admin Invites
+const generateInviteToken = (inviteData) => {
+  return jwt.sign(
+    { data: inviteData },
+    JWT_SECRET,
+    { expiresIn: "48h" }
+  );
+};
+
+
+module.exports = { generateToken, generateVerificationToken, verifyToken ,generateInviteToken};

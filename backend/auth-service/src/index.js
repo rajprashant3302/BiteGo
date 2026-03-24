@@ -4,8 +4,8 @@ const cors = require("cors");
 const authRoutes = require("./routes/authRoutes");
 const vendorRoutes = require("./routes/vendorRoutes");
 const { connectProducer } = require("./kafka/producer");
-
 const app = express();
+
 
 app.use(cors());
 app.use(express.json());
