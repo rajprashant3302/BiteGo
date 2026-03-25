@@ -1,0 +1,115 @@
+# ============================================
+# DELIVERY QUERIES
+# ============================================
+
+extend type Query {
+  # Delivery Partner Info
+  getDeliveryPartnerById(id: ID!): DeliveryPartner
+  getAvailableDeliveryPartners(latitude: Decimal!, longitude: Decimal!, radius: Decimal = 5): [DeliveryPartner!]!
+  
+  # Assigned Orders
+  getAssignedOrders(deliveryPartnerId: ID!, status: OrderStatus): [Order!]!
+  getDeliveryPartnerStats(deliveryPartnerId: ID!): DeliveryStats!
+}
+
+# ============================================
+# DELIVERY MUTATIONS
+# ============================================
+
+extend type Mutation {
+  # Delivery Partner Management
+  createDeliveryPartner(userId: ID!, input: CreateDeliveryPartnerInput!): DeliveryPartner!
+  updateDeliveryPartnerProfile(deliveryPartnerId: ID!, input: UpdateDeliveryPartnerInput!): DeliveryPartner!
+  
+  # Availability Management
+  toggleDeliveryPartnerAvailability(deliveryPartnerId: ID!, isAvailable: Boolean!): DeliveryPartner!
+  updateDeliveryPartnerLocation(deliveryPartnerId: ID!, latitude: Decimal!, longitude: Decimal!): DeliveryPartner!
+  
+  # Order Delivery
+  confirmOrderPickup(orderId: ID!, deliveryPartnerId: ID!): Order!
+  updateDeliveryProgress(orderId: ID!, latitude: Decimal!, longitude: Decimal!): Order!
+  completeDelivery(orderId: ID!): Order!
+}
+
+# ============================================
+# REVIEW QUERIES
+# ============================================
+
+extend type Query {
+  # Review Retrieval
+  getReviewById(id: ID!): Review
+  getRestaurantReviews(restaurantId: ID!, page: Int = 1, pageSize: Int = 20): [Review!]!
+  getUserReviews(userId: ID!): [Review!]!
+  
+  # Restaurant Rating
+  getRestaurantRating(restaurantId: ID!): RestaurantRating!
+}
+
+# ============================================
+# REVIEW MUTATIONS
+# ============================================
+
+extend type Mutation {
+  # Review Management
+  addReview(orderId: ID!, input: AddReviewInput!): Review!
+  updateReview(reviewId: ID!, input: UpdateReviewInput!): Review!
+  deleteReview(reviewId: ID!): SuccessResponse!
+  
+  # Review Moderation (Admin)
+  flagReview(reviewId: ID!, reason: String!): SuccessResponse!
+  hideReview(reviewId: ID!): SuccessResponse!
+}
+
+# ============================================
+# INPUT TYPES
+# ============================================
+
+input CreateDeliveryPartnerInput {
+  vehicleNumber: String!
+  licenseNumber: String!
+}
+
+input UpdateDeliveryPartnerInput {
+  vehicleNumber: String
+  licenseNumber: String
+}
+
+input AddReviewInput {
+  ratingRestaurant: Int
+  ratingDelivery: Int
+  reviewText: String
+}
+
+input UpdateReviewInput {
+  ratingRestaurant: Int
+  ratingDelivery: Int
+  reviewText: String
+}
+
+# ============================================
+# RESPONSE TYPES
+# ============================================
+
+type DeliveryStats {
+  totalDeliveries: Int!
+  completedDeliveries: Int!
+  avgDeliveryTime: Int!
+  rating: Decimal!
+  totalEarnings: Decimal!
+}
+
+type RestaurantRating {
+  restaurantId: ID!
+  avgRestaurantRating: Decimal!
+  avgDeliveryRating: Decimal!
+  totalReviews: Int!
+  ratingDistribution: RatingDistribution!
+}
+
+type RatingDistribution {
+  fiveStar: Int!
+  fourStar: Int!
+  threeStar: Int!
+  twoStar: Int!
+  oneStar: Int!
+}

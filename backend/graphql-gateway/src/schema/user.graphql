@@ -1,0 +1,81 @@
+# ============================================
+# USER QUERIES
+# ============================================
+
+extend type Query {
+  # User Profile Operations
+  getUserById(id: ID!): User
+  getCurrentUser: User
+  getUserByEmail(email: String!): User
+  
+  # Address Operations
+  getUserAddresses(userId: ID!): [Address!]!
+  getAddressById(id: ID!): Address
+  
+  # Wallet Operations
+  getUserWalletBalance(userId: ID!): Decimal!
+  getUserWalletTransactions(userId: ID!, limit: Int, offset: Int): [WalletTransaction!]!
+  
+  # Search Users (Admin)
+  searchUsers(query: String!, role: UserRole, limit: Int): [User!]!
+}
+
+# ============================================
+# USER MUTATIONS
+# ============================================
+
+extend type Mutation {
+  # Authentication & Registration
+  registerUser(input: RegisterUserInput!): AuthPayload!
+  loginUser(input: LoginInput!): AuthPayload!
+  
+  # Profile Management
+  updateUserProfile(userId: ID!, input: UpdateUserInput!): User!
+  updateUserProfilePicture(userId: ID!, imageUrl: String!): User!
+  
+  # Address Management
+  addAddress(userId: ID!, input: AddAddressInput!): Address!
+  updateAddress(addressId: ID!, input: AddAddressInput!): Address!
+  deleteAddress(addressId: ID!): SuccessResponse!
+  setDefaultAddress(addressId: ID!): Address!
+  
+  # Wallet Operations
+  addWalletBalance(userId: ID!, amount: Decimal!): WalletTransaction!
+  deductWalletBalance(userId: ID!, amount: Decimal!, description: String): WalletTransaction!
+  
+  # Notification Preferences
+  markNotificationAsRead(notificationId: ID!): Notification!
+  deleteNotification(notificationId: ID!): SuccessResponse!
+}
+
+# ============================================
+# INPUT TYPES
+# ============================================
+
+input RegisterUserInput {
+  name: String!
+  email: String!
+  phone: String
+  password: String!
+  role: UserRole!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+input UpdateUserInput {
+  name: String
+  phone: String
+  profilePicUrl: String
+}
+
+input AddAddressInput {
+  addressLine: String!
+  city: String!
+  pincode: String!
+  latitude: Decimal!
+  longitude: Decimal!
+  isDefault: Boolean
+}

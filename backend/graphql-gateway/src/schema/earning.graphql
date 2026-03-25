@@ -1,0 +1,50 @@
+﻿# ============================================
+# EARNING TYPES (ALIGNED WITH IMPLEMENTED RESOLVERS)
+# ============================================
+
+type RestaurantOwnerEarnings {
+  restaurantOwnerId: ID!
+  totalEarnings: Decimal!
+  totalOrders: Int!
+  avgOrderEarning: Decimal!
+}
+
+type DeliveryPartnerEarnings {
+  deliveryPartnerId: ID!
+  totalEarnings: Decimal!
+  totalDeliveries: Int!
+  avgDeliveryEarning: Decimal!
+}
+
+type PlatformEarnings {
+  totalRevenue: Decimal!
+  restaurantEarnings: Decimal!
+  deliveryEarnings: Decimal!
+  platformEarnings: Decimal!
+  totalOrders: Int!
+  platformCommissionPercentage: Decimal!
+}
+
+type WithdrawalResponse {
+  success: Boolean!
+  message: String!
+  amount: Decimal!
+}
+
+# ============================================
+# EARNING QUERIES
+# ============================================
+
+extend type Query {
+  getRestaurantOwnerEarnings(ownerId: ID!, startDate: DateTime, endDate: DateTime): RestaurantOwnerEarnings!
+  getDeliveryPartnerEarnings(deliveryPartnerId: ID!, startDate: DateTime, endDate: DateTime): DeliveryPartnerEarnings!
+  getPlatformEarnings(startDate: DateTime, endDate: DateTime): PlatformEarnings!
+}
+
+# ============================================
+# EARNING MUTATIONS
+# ============================================
+
+extend type Mutation {
+  withdrawEarnings(userId: ID!, amount: Decimal!, bankAccountId: ID): WithdrawalResponse!
+}
