@@ -18,6 +18,7 @@ import BiteGoLogo from '@/components/layout/BiteGoLogo';
 import { useCart } from '@/context/CartContext';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import Image from "next/image";
 
 export default function Navbar() {
   const router = useRouter();
@@ -149,7 +150,9 @@ export default function Navbar() {
                             {item.type === 'RESTAURANT' ? <Utensils size={20} /> : <Image 
                                 src={item.imageUrl} 
                                 alt={item.name} 
-                                className="w-full h-full object-cover" 
+                                width={48}
+                                height={48}
+                                className=" object-cover rounded-xl" 
                               />}
                           </div>
 
