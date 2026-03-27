@@ -150,12 +150,23 @@ exports.placeOrder = async (req, res) => {
     });
 
     // ── STEP 4: KAFKA (POST-TRANSACTION) ─────────────────────────
+    // ── STEP 4: KAFKA (POST-TRANSACTION) ─────────────────────────
     if (result.remainingAmount > 0 && paymentMethod === "online") {
+      // Trigger payment flow
       await publishEvent("payment-initiated", {
         orderId: result.order.OrderID,
         amount: result.remainingAmount,
         userId: userId,
         paymentId: result.secondaryPayment.PaymentID
+      });
+    } else if (result.remainingAmount === 0 || paymentMethod === "cod") {
+      // ✨ NEW: Order is instantly confirmed! Tell the delivery service!
+      await publishEvent("order-confirmed", {
+        orderId: result.order.OrderID,
+        restaurantId: restaurantId,
+        userId: userId,
+        addressId: addressId,
+        status: "Preparing" 
       });
     }
 

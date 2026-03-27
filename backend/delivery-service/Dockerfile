@@ -13,7 +13,8 @@ RUN npm install @prisma/client@5.21.0 && npx prisma@5.21.0 generate --generator 
 # Copy and setup redis 
 WORKDIR /app
 COPY packages/redis ./packages/redis
-
+WORKDIR /app/packages/redis
+RUN npm install
 # 2. SETUP delivery SERVICE
 WORKDIR /app/backend/delivery-service
 COPY backend/delivery-service/package.json ./

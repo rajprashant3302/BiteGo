@@ -15,7 +15,7 @@ exports.createRazorpayOrder = async (req, res) => {
     const { amount, paymentId } = req.body;
 
     const options = {
-      amount: Math.round(amount * 100), // Razorpay expects amount in paise (smallest currency unit)
+      amount: Math.round(amount * 100), // Razorpay expects amount in paise
       currency: "INR",
       receipt: paymentId, 
     };
@@ -29,7 +29,6 @@ exports.createRazorpayOrder = async (req, res) => {
 };
 
 // POST /api/payments/verify
-
 exports.verifyPayment = async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, paymentId, orderId } = req.body;
@@ -48,10 +47,13 @@ exports.verifyPayment = async (req, res) => {
           PaymentStatus: 'Success', 
           TransactionReference: razorpay_payment_id 
         },
-        include: { user: true } // Include user if you need their details for the event
+        include: { 
+          user: true,
+          order: true // ✨ We need the order details for the Delivery Service!
+        } 
       });
 
-      // 2. Publish Kafka Event to notify the Order Service
+      // 2. Publish Kafka Event to notify the Order Service that payment cleared
       await publishEvent("payment-success", {
         orderId: orderId,
         paymentId: paymentId,
@@ -59,6 +61,15 @@ exports.verifyPayment = async (req, res) => {
         amount: updatedPayment.TotalAmount,
         transactionRef: razorpay_payment_id,
         timestamp: new Date().toISOString()
+      });
+
+      // 3. ✨ NEW: Publish 'order-confirmed' to wake up the Delivery Service
+      await publishEvent("order-confirmed", {
+        orderId: updatedPayment.OrderID,
+        restaurantId: updatedPayment.order.RestaurantID,
+        userId: updatedPayment.UserID,
+        addressId: updatedPayment.order.AddressID,
+        status: "Preparing"
       });
       
       res.status(200).json({ success: true, message: "Payment verified successfully" });

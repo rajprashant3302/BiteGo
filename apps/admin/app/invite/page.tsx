@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { FiArrowLeft, FiMail, FiLoader, FiChevronDown } from "react-icons/fi";
+import toast from "react-hot-toast";
 
 // ── nothing changed below this line except the return/JSX ──
 
@@ -40,7 +41,7 @@ export default function InviteUser() {
     console.log("Token : ", token);
 
     if (!token) {
-      setMessage("❌ You must be logged in to send invites.");
+      toast.error("❌ You must be logged in to send invites.");
       setLoading(false);
       return;
     }
