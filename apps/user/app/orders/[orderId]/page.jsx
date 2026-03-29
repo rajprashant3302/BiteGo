@@ -9,6 +9,7 @@ import html2canvas from 'html2canvas';
 
 import InvoiceTemplate from '@/components/cart/InvoiceTemplate';
 import { biteToast } from '@/lib/toast';
+import { io } from 'socket.io-client'
 
 export default function OrderTracking() {
   const { orderId } = useParams();
@@ -16,12 +17,48 @@ export default function OrderTracking() {
   const [isGenerating, setIsGenerating] = useState(false);
   const router = useRouter();
 
+  // 1. Fetch Initial Order Data
+  // This only runs ONCE when the orderId changes
   useEffect(() => {
+    if (!orderId) return;
+
     fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL}/api/orders/${orderId}`)
       .then(res => res.json())
-      .then(data => setOrder(data));
+      .then(data => setOrder(data))
+      .catch(err => console.error("Failed to fetch order", err));
   }, [orderId]);
 
+
+  // 2. Handle Live Socket Updates
+  // This only runs AFTER the order is fetched and we have the UserID
+  useEffect(() => {
+    // Prevent connecting if we don't know who the user is yet
+    if (!order?.UserID) return;
+
+    const socket = io(process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001");
+    
+    // Join the room
+    socket.emit('join_room', `user_${order.UserID}`);
+
+    // Listen for updates
+    socket.on('order_status_update', (data) => {
+      if (data.orderId === orderId) {
+        // new Audio('/notification.mp3').play().catch(() => {});
+        biteToast.success(data.message || `Order is now ${data.status}!`);
+        
+        // Update state
+        setOrder(prev => ({ ...prev, OrderStatus: data.status }));
+      }
+    });
+
+    // Cleanup when component unmounts or dependencies change
+    return () => {
+      socket.disconnect();
+    };
+  }, [orderId, order?.UserID]);
+
+
+  // Your Cloudinary function is perfectly fine!
   const uploadToCloudinary = async (file) => {
     const data = new FormData();
     data.append("file", file);
@@ -34,70 +71,69 @@ export default function OrderTracking() {
     const result = await res.json();
     return result.secure_url;
   };
-
   const handleDownloadInvoice = async () => {
-  if (isGenerating) return;
-  setIsGenerating(true);
-  const toastId = biteToast.success("Preparing your invoice...");
+    if (isGenerating) return;
+    setIsGenerating(true);
+    const toastId = biteToast.success("Preparing your invoice...");
 
-  try {
-    // 1. Check DB (Keep existing logic)
-    const checkRes = await fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL}/api/orders/${orderId}/invoice-check`);
-    const checkData = await checkRes.json();
+    try {
+      // 1. Check DB (Keep existing logic)
+      const checkRes = await fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL}/api/orders/${orderId}/invoice-check`);
+      const checkData = await checkRes.json();
 
-    if (checkData.exists) {
-      window.open(checkData.url, '_blank');
-      biteToast.dismiss(toastId);
-      setIsGenerating(false);
-      return;
-    }
-
-    // 2. Generate PDF with "Sanitized" Canvas
-    const invoiceElement = document.getElementById('invoice-pdf-template');
-    
-    const canvas = await html2canvas(invoiceElement, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: "#ffffff",
-      // This is the fix: It skips trying to parse complex CSS functions 
-      // that html2canvas doesn't understand.
-      onclone: (clonedDoc) => {
-        const el = clonedDoc.getElementById('invoice-pdf-template');
-        el.style.position = "relative";
-        el.style.left = "0";
-        // Force standard font stack to avoid parsing advanced font metrics
-        el.style.fontFamily = "Arial, sans-serif";
+      if (checkData.exists) {
+        window.open(checkData.url, '_blank');
+        biteToast.dismiss(toastId);
+        setIsGenerating(false);
+        return;
       }
-    });
 
-    const imgData = canvas.toDataURL('image/png');
-    const pdf = new jsPDF('p', 'mm', 'a4');
-    const pdfWidth = pdf.internal.pageSize.getWidth();
-    const imgProps = pdf.getImageProperties(imgData);
-    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
-    
-    pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-    const pdfBlob = pdf.output('blob');
+      // 2. Generate PDF with "Sanitized" Canvas
+      const invoiceElement = document.getElementById('invoice-pdf-template');
 
-    // 3. Upload & Save (Keep existing logic)
-    const uploadedUrl = await uploadToCloudinary(pdfBlob);
-    await fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL}/api/orders/invoice/save`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderId, pdfUrl: uploadedUrl })
-    });
+      const canvas = await html2canvas(invoiceElement, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff",
+        // This is the fix: It skips trying to parse complex CSS functions 
+        // that html2canvas doesn't understand.
+        onclone: (clonedDoc) => {
+          const el = clonedDoc.getElementById('invoice-pdf-template');
+          el.style.position = "relative";
+          el.style.left = "0";
+          // Force standard font stack to avoid parsing advanced font metrics
+          el.style.fontFamily = "Arial, sans-serif";
+        }
+      });
 
-    pdf.save(`BiteGo_Invoice_${orderId.slice(-6)}.pdf`);
-    biteToast.success("Invoice ready!", { id: toastId });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
 
-  } catch (error) {
-    console.error("Invoice Error:", error);
-    biteToast.error("Rendering error. Try again.", { id: toastId });
-  } finally {
-    setIsGenerating(false);
-  }
-};
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const pdfBlob = pdf.output('blob');
+
+      // 3. Upload & Save (Keep existing logic)
+      const uploadedUrl = await uploadToCloudinary(pdfBlob);
+      await fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL}/api/orders/invoice/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, pdfUrl: uploadedUrl })
+      });
+
+      pdf.save(`BiteGo_Invoice_${orderId.slice(-6)}.pdf`);
+      biteToast.success("Invoice ready!", { id: toastId });
+
+    } catch (error) {
+      console.error("Invoice Error:", error);
+      biteToast.error("Rendering error. Try again.", { id: toastId });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   if (!order) return <div className="min-h-screen bg-slate-50 p-12 animate-pulse" />;
 
@@ -124,7 +160,7 @@ export default function OrderTracking() {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <motion.div 
+          <motion.div
             whileTap={{ scale: 0.98 }}
             onClick={() => router.push(`/orders/${orderId}/track`)}
             className="bg-orange-500 p-6 rounded-[2.5rem] shadow-xl shadow-orange-200 cursor-pointer group relative overflow-hidden h-48"
@@ -141,7 +177,7 @@ export default function OrderTracking() {
             </div>
           </motion.div>
 
-          <motion.div 
+          <motion.div
             whileTap={{ scale: 0.98 }}
             onClick={handleDownloadInvoice}
             className={`bg-white p-6 rounded-[2.5rem] shadow-xl border border-slate-100 cursor-pointer group relative overflow-hidden h-48 ${isGenerating ? 'opacity-50 pointer-events-none' : ''}`}
@@ -201,7 +237,7 @@ export default function OrderTracking() {
             </div>
           </motion.div>
         )}
-        
+
         {/* Driver and Order Detail Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">

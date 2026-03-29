@@ -85,6 +85,23 @@ services:
     ports:
       - "5001:5001"
     depends_on:
+      db:
+        condition: service_started
+      redis:
+        condition: service_started
+      kafka:
+        condition: service_healthy # 🔥 ADD THIS
+    networks:
+      - bitego_network
+
+  payment-service:
+    build:
+      context: .
+      dockerfile: backend/payment-service/Dockerfile
+    env_file: .env
+    ports:
+      - "5005:5005"
+    depends_on:
       - db
       - redis
     networks:
@@ -118,8 +135,11 @@ services:
       context: .
       dockerfile: backend/chat-service/Dockerfile
     env_file: .env
+    ports:
+      - "5003:5003"
     depends_on:
       - mongo
+      - db
     networks:
       - bitego_network
 
@@ -184,11 +204,11 @@ services:
     env_file: .env
     ports:
       - "5004:5004"
-    environment:
-      - .env
     depends_on:
       - db
       - redis
+    networks:
+      - bitego_network
     
   # ----------------- DATABASE -----------------
   db:

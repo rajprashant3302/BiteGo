@@ -62,6 +62,7 @@ async def sync_data():
                     "name": item.ItemName,
                     "description": item.Description,
                     "price": float(item.Price) if item.Price else 0.0,
+                    "imageUrl":item.ItemImageURL,
                     "isVeg": item.IsVeg,
                     "restaurant_name": item.restaurant.Name if item.restaurant else "Unknown"
                 }

@@ -1,31 +1,50 @@
-// backend/order-service/src/index.js
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
-const { prisma } = require("database"); // Shared DB package
+const http = require("http");
+const { Server } = require("socket.io");
+const { connectMongoDB, prisma } = require("./config/connectDB");
+const setupChatSocket = require("./socket/chatSocket");
 
 const app = express();
-const PORT = process.env.PORT || 5001; // Runs on 5001 internally
+const PORT = process.env.CHAT_PORT || 5003;
 
-app.use(cors());
+// 1. Middleware
+app.use(cors({
+    origin: process.env.FRONTEND_URL,
+    credentials: true
+}));
 app.use(express.json());
 
-// Health Check
+// 2. HTTP Routes
 app.get("/", (req, res) => {
-  res.send("✅ Order Service is Running");
+  res.send("✅ Chat & AI Recommendation Service is Running");
 });
 
-// Example: Get All Orders (Test DB Connection)
-app.get("/chats", async (req, res) => {
+// Example Prisma Route (NeonDB)
+app.get("/chats-sync", async (req, res) => {
   try {
-    const orders = await prisma.orders.findMany();
+    const orders = await prisma.orders.findMany(); // Testing shared DB package
     res.json(orders);
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Database error" });
+    res.status(500).json({ error: "Prisma Database error" });
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Chat Service running on port ${PORT}`);
+// 3. Create Server & Initialize Socket.io
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: {
+    origin: process.env.FRONTEND_URL,
+    credentials: true
+  }
+});
+
+// 4. Connect Databases & Start Socket Listeners
+connectMongoDB().then(() => {
+    setupChatSocket(io); // This activates all the logic we wrote in chatSocket.js
+    
+    server.listen(PORT, () => {
+      console.log(`🚀 Server running on http://localhost:${PORT}`);
+    });
 });
