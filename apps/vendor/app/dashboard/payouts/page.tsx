@@ -1,5 +1,7 @@
 "use client";
 
+import { useCallback } from "react";
+import { useSession } from "next-auth/react";
 import {
   FiAlertCircle,
   FiCheckCircle,
@@ -8,33 +10,15 @@ import {
   FiDollarSign,
   FiShield,
 } from "react-icons/fi";
-
-const payouts = [
-  {
-    branch: "Patna Central",
-    amount: "₹42,500",
-    status: "Settled",
-    date: "26 Mar 2026",
-  },
-  {
-    branch: "Kankarbagh",
-    amount: "₹36,200",
-    status: "Settled",
-    date: "26 Mar 2026",
-  },
-  {
-    branch: "Ashok Rajpath",
-    amount: "₹28,100",
-    status: "Pending",
-    date: "27 Mar 2026",
-  },
-  {
-    branch: "Fraser Road",
-    amount: "₹21,650",
-    status: "Under Review",
-    date: "27 Mar 2026",
-  },
-];
+import {
+  formatCurrency,
+  formatDate,
+  getVendorPayouts,
+} from "../../lib/dashboard/vendor-dashboard";
+import { useVendorQuery } from "../../lib/dashboard/use-vendor-query";
+import DashboardPageSkeleton from "../../../components/dashboard/DashboardPageSkeleton";
+import DashboardEmptyState from "../../../components/dashboard/DashboardEmptyState";
+import DashboardErrorState from "../../../components/dashboard/DashboardErrorState";
 
 function payoutStatusClass(status: string) {
   if (status === "Settled") return "bg-green-100 text-green-700";
@@ -43,31 +27,74 @@ function payoutStatusClass(status: string) {
 }
 
 export default function PayoutsPage() {
+  const { data: session } = useSession();
+  const userId = session?.user?.id;
+  const token = (session?.user as { accessToken?: string } | undefined)?.accessToken;
+  const loader = useCallback(() => getVendorPayouts(userId!, token), [userId, token]);
+  const { data, loading, error, refetch } = useVendorQuery(Boolean(userId), loader);
+
+  if (loading) {
+    return <DashboardPageSkeleton title="Loading payouts..." />;
+  }
+
+  if (error) {
+    return <DashboardErrorState message={error} onRetry={refetch} />;
+  }
+
+  if (!data || data.payouts.length === 0) {
+    return (
+      <DashboardEmptyState
+        title="No payouts yet"
+        description="Payout entries will appear here once restaurant payments start getting processed."
+      />
+    );
+  }
+
   return (
     <div className="space-y-6">
       <section className="rounded-[28px] border border-gray-100 bg-white p-6 shadow-sm">
-        <h1 className="text-2xl font-black text-gray-900">Payouts</h1>
-        <p className="mt-2 text-sm leading-6 text-gray-500">
-          Track settlements, payment health, and branch-level payout visibility.
-        </p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-black text-gray-900">Payouts</h1>
+            <p className="mt-2 text-sm leading-6 text-gray-500">
+              Track settlements, payment health, and branch-level payout visibility.
+            </p>
+          </div>
+
+          <button
+            onClick={refetch}
+            className="inline-flex items-center gap-2 rounded-2xl border border-gray-200 bg-white px-4 py-2 text-sm font-bold text-gray-700 transition hover:bg-gray-50"
+          >
+            <FiCreditCard size={16} />
+            Refresh
+          </button>
+        </div>
       </section>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-gray-500">Total Settled</p>
-          <h3 className="mt-2 text-2xl font-black text-gray-900">₹78,700</h3>
+          <h3 className="mt-2 text-2xl font-black text-gray-900">
+            {formatCurrency(data.summary.totalSettled)}
+          </h3>
         </div>
         <div className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-gray-500">Pending</p>
-          <h3 className="mt-2 text-2xl font-black text-amber-600">₹28,100</h3>
+          <h3 className="mt-2 text-2xl font-black text-amber-600">
+            {formatCurrency(data.summary.pendingPayouts)}
+          </h3>
         </div>
         <div className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-gray-500">Under Review</p>
-          <h3 className="mt-2 text-2xl font-black text-red-600">₹21,650</h3>
+          <h3 className="mt-2 text-2xl font-black text-red-600">
+            {formatCurrency(data.summary.underReviewPayouts)}
+          </h3>
         </div>
         <div className="rounded-[24px] border border-gray-100 bg-white p-5 shadow-sm">
           <p className="text-sm font-semibold text-gray-500">Payout Health</p>
-          <h3 className="mt-2 text-2xl font-black text-green-600">88%</h3>
+          <h3 className="mt-2 text-2xl font-black text-green-600">
+            {data.summary.payoutHealth}%
+          </h3>
         </div>
       </section>
 
@@ -75,21 +102,19 @@ export default function PayoutsPage() {
         <div className="rounded-[28px] border border-gray-100 bg-white p-6 shadow-sm">
           <h2 className="text-xl font-black text-gray-900">Settlement Ledger</h2>
           <p className="mt-1 text-sm text-gray-500">
-            A clean vendor-side payout register across branches.
+            A live payout register across branches.
           </p>
 
           <div className="mt-5 space-y-4">
-            {payouts.map((payout) => (
+            {data.payouts.map((payout) => (
               <div
-                key={`${payout.branch}-${payout.date}`}
+                key={`${payout.branch}-${payout.reference}`}
                 className="rounded-[24px] border border-gray-100 p-4 transition hover:border-orange-200 hover:bg-orange-50/20"
               >
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-black text-gray-900">
-                        {payout.branch}
-                      </h3>
+                      <h3 className="text-lg font-black text-gray-900">{payout.branch}</h3>
                       <span
                         className={`rounded-full px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider ${payoutStatusClass(
                           payout.status
@@ -99,23 +124,29 @@ export default function PayoutsPage() {
                       </span>
                     </div>
 
-                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                    <div className="mt-4 grid gap-3 sm:grid-cols-4">
                       <div className="rounded-2xl bg-gray-50 p-3">
                         <p className="text-xs font-semibold text-gray-500">Amount</p>
                         <p className="mt-1 text-base font-black text-gray-900">
-                          {payout.amount}
+                          {formatCurrency(payout.amount)}
                         </p>
                       </div>
                       <div className="rounded-2xl bg-gray-50 p-3">
                         <p className="text-xs font-semibold text-gray-500">Date</p>
                         <p className="mt-1 text-base font-black text-gray-900">
-                          {payout.date}
+                          {formatDate(payout.date)}
                         </p>
                       </div>
                       <div className="rounded-2xl bg-gray-50 p-3">
                         <p className="text-xs font-semibold text-gray-500">Method</p>
                         <p className="mt-1 text-base font-black text-gray-900">
-                          Bank Transfer
+                          {payout.paymentMethod}
+                        </p>
+                      </div>
+                      <div className="rounded-2xl bg-gray-50 p-3">
+                        <p className="text-xs font-semibold text-gray-500">Reference</p>
+                        <p className="mt-1 text-base font-black text-gray-900">
+                          {payout.reference}
                         </p>
                       </div>
                     </div>
@@ -155,7 +186,7 @@ export default function PayoutsPage() {
                 <div>
                   <p className="font-bold text-gray-900">Pending settlement</p>
                   <p className="mt-1 text-sm text-gray-600">
-                    Ashok Rajpath payout should be monitored until completion.
+                    {formatCurrency(data.summary.pendingPayouts)} is still pending.
                   </p>
                 </div>
               </div>
@@ -165,7 +196,7 @@ export default function PayoutsPage() {
                 <div>
                   <p className="font-bold text-gray-900">Review required</p>
                   <p className="mt-1 text-sm text-gray-600">
-                    Fraser Road payout is under review and may need manual attention.
+                    {formatCurrency(data.summary.underReviewPayouts)} is flagged under review.
                   </p>
                 </div>
               </div>
@@ -175,11 +206,10 @@ export default function PayoutsPage() {
           <div className="rounded-[28px] border border-gray-100 bg-[#111827] p-6 shadow-sm text-white">
             <p className="text-sm font-semibold text-orange-200">Financial Integrity</p>
             <h2 className="mt-2 text-xl font-black">
-              Add verified bank and settlement APIs next
+              Payout data is tied to actual backend payment records
             </h2>
             <p className="mt-2 text-sm leading-6 text-gray-300">
-              This section becomes truly real when connected to actual settlement,
-              payout, and verification services.
+              This page is fully dynamic and no longer depends on hardcoded payout rows.
             </p>
             <div className="mt-4 inline-flex items-center gap-2 rounded-2xl bg-white/10 px-4 py-2 text-sm font-semibold text-white">
               <FiShield />
@@ -193,8 +223,7 @@ export default function PayoutsPage() {
               Recommendation
             </p>
             <p className="mt-2 text-sm leading-6 text-gray-600">
-              Add payout filters for settled, pending, failed, and disputed states,
-              along with downloadable settlement history.
+              You can extend this later with downloadable statements and payout export actions.
             </p>
           </div>
         </div>
