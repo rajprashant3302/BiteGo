@@ -71,7 +71,7 @@ exports.placeOrder = async (req, res) => {
           throw new Error("Invalid or expired coupon code");
         }
 
-        const couponDiscount = coupon.DiscountType === "Percentage"
+        const couponDiscount = coupon.DiscountType === "Percentage" 
           ? totalAfterCoupon * (Number(coupon.DiscountValue) / 100)
           : Number(coupon.DiscountValue);
 
@@ -150,32 +150,16 @@ exports.placeOrder = async (req, res) => {
     });
 
     // ── STEP 4: KAFKA (POST-TRANSACTION) ─────────────────────────
-    // ── STEP 4: KAFKA (POST-TRANSACTION) ─────────────────────────
     if (result.remainingAmount > 0 && paymentMethod === "online") {
-      // Trigger payment flow
       await publishEvent("payment-initiated", {
         orderId: result.order.OrderID,
         amount: result.remainingAmount,
         userId: userId,
         paymentId: result.secondaryPayment.PaymentID
       });
-    } else if (result.remainingAmount === 0 || paymentMethod === "cod") {
-      // ✨ NEW: Order is instantly confirmed! Tell the delivery service!
-      await publishEvent("order-confirmed", {
-        orderId: result.order.OrderID,
-        restaurantId: restaurantId,
-        userId: userId,
-        addressId: addressId,
-        status: "Preparing" 
-      });
     }
 
-    res.status(201).json({
-      success: true,
-      orderId: result.order.OrderID,
-      remainingAmount: result.remainingAmount,
-      paymentId: result.secondaryPayment ? result.secondaryPayment.PaymentID : null
-    });
+    res.status(201).json({ success: true, orderId: result.order.OrderID });
 
   } catch (error) {
     console.error("Order Error:", error);

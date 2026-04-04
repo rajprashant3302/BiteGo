@@ -1,13 +1,9 @@
-// apps/admin/auth.ts
-
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
-const BACKEND_URL = process.env.AUTH_SERVICE_URL!;
+const BACKEND_URL = process.env.AUTH_SERVICE_URL || "http://localhost:5000";
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
-  debug: true,
-
   providers: [
     Credentials({
       name: "Credentials",
@@ -17,33 +13,36 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       },
 
       async authorize(credentials) {
-        const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(credentials),
-        });
+        try {
+          const res = await fetch(`${BACKEND_URL}/api/auth/login`, {
+            method: "POST",
+            body: JSON.stringify({
+              email: credentials?.email,
+              password: credentials?.password,
+            }),
+            headers: { "Content-Type": "application/json" },
+          });
 
-        const data = await res.json();
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.message || "Login failed");
 
-        if (!res.ok) throw new Error(data.message);
+          // 🔒 IMPORTANT: Restrict to ADMIN only
+          const allowedRoles = ["Admin", "SuperAdmin", "Ops", "Support"];
 
-        // ✅ FIX: Check for both lowercase and Prisma's PascalCase
-        const userRole = data.user.role || data.user.Role;
+          if (!allowedRoles.includes(data.user.role)) {
+            throw new Error("Unauthorized admin access");
+          }
 
-        // 🔒 IMPORTANT: Allow only ADMIN roles
-        const allowedRoles = ["SuperAdmin", "Admin", "Ops", "Support"];
-        if (!allowedRoles.includes(userRole)) {
-          throw new Error("Unauthorized access");
+          return {
+            id: data.user.id.toString(),
+            email: data.user.email,
+            name: data.user.name,
+            role: data.user.role,
+            accessToken: data.token,
+          };
+        } catch (error: any) {
+          throw new Error(error.message);
         }
-
-        return {
-          // ✅ FIX: Fallbacks added here too
-          id: (data.user.id || data.user.UserID).toString(),
-          email: data.user.email || data.user.Email,
-          name: data.user.name || data.user.Name,
-          role: userRole,
-          accessToken: data.token || data.accessToken,
-        };
       },
     }),
   ],
@@ -52,12 +51,9 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.role = (user as any).role;
-        token.accessToken = (user as any).accessToken;
-        token.email = user.email;
-        token.name = user.name;
+        token.role = user.role;
+        token.accessToken = user.accessToken;
       }
-
       return token;
     },
 
@@ -65,11 +61,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
-        session.user.email = token.email as string;
-        session.user.name = token.name as string;
-        (session.user as any).accessToken = token.accessToken;
+        session.user.accessToken = token.accessToken as string;
       }
-
       return session;
     },
   },
@@ -81,6 +74,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
   session: {
     strategy: "jwt",
+    maxAge: 8 * 60 * 60, // 🔒 8 hours session for admin
   },
 
   secret: process.env.NEXTAUTH_SECRET,

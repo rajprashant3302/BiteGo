@@ -5,6 +5,7 @@ import {
   Search, 
   ShoppingBag, 
   User, 
+  Zap, 
   ChevronDown, 
   Loader2, 
   Utensils, 
@@ -18,7 +19,6 @@ import BiteGoLogo from '@/components/layout/BiteGoLogo';
 import { useCart } from '@/context/CartContext';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import Image from "next/image";
 
 export default function Navbar() {
   const router = useRouter();
@@ -137,7 +137,7 @@ export default function Navbar() {
                           key={item.id}
                           onClick={() => {
                             setShowDropdown(false);
-                            const path = item.type === 'RESTAURANT' ? `/restaurants/${item.id}` : `/item/${item.id}`;
+                            const path = item.type === 'RESTAURANT' ? `/restaurant/${item.id}` : `/item/${item.id}`;
                             router.push(path);
                           }}
                           className="w-full flex items-center gap-4 p-3 hover:bg-orange-50/50 rounded-2xl transition-all duration-200 text-left group"
@@ -147,13 +147,7 @@ export default function Navbar() {
                             "h-12 w-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
                             item.type === 'RESTAURANT' ? "bg-orange-100 text-orange-600" : "bg-blue-50 text-blue-600"
                           )}>
-                            {item.type === 'RESTAURANT' ? <Utensils size={20} /> : <Image 
-                                src={item.imageUrl} 
-                                alt={item.name} 
-                                width={48}
-                                height={48}
-                                className=" object-cover rounded-xl" 
-                              />}
+                            {item.type === 'RESTAURANT' ? <Utensils size={20} /> : <Zap size={20} />}
                           </div>
 
                           <div className="flex-1 min-w-0">
@@ -219,7 +213,7 @@ export default function Navbar() {
               <div className="h-10 w-10 rounded-2xl bg-gray-100 animate-pulse" />
             ) : status === 'authenticated' ? (
               <button 
-                onClick={() => router.push('/settings')}
+                onClick={() => router.push('/profile')}
                 className="flex items-center gap-2 p-1 pr-3 hover:bg-gray-50 rounded-2xl transition-all group border border-transparent hover:border-gray-100"
               >
                 <div className="relative h-10 w-10 rounded-2xl overflow-hidden border-2 border-white shadow-sm ring-1 ring-gray-100">

@@ -8,9 +8,7 @@ import BottomNav from '@/components/layout/BottomNav';
 // import CartSidebar from '@/components/cart/CartSidebar';
 import ScheduleModalWrapper from '@/components/modals/ScheduleModalWrapper';
 import AddToast from '@/components/home/AddToast';
-import SupportWrapper from '@/components/chat/SupportWrapper'
 import { Toaster } from 'react-hot-toast';
-
 
 export const metadata = {
   title: 'BiteGo — Food & Delivery',
@@ -29,7 +27,6 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <ScheduleModalWrapper />
             <AddToast />
             <div className="flex-1">{children}</div>
-            <SupportWrapper />
             <Toaster position="bottom-center" reverseOrder={false} />
             <Footer />
             <BottomNav />

@@ -10,24 +10,6 @@ import CheckoutOverlay from '@/components/cart/CheckoutOverlay';
 import { useRouter } from 'next/navigation';
 import { biteToast } from '@/lib/toast';
 
-const PAYMENT_API_BASE = process.env.NEXT_PUBLIC_PAYMENT_SERVICE_URL || "http://localhost:5005";
-
-
-const loadRazorpayScript = () => {
-  return new Promise((resolve) => {
-    if (window.Razorpay) {
-      resolve(true);
-      return;
-    }
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.onload = () => resolve(true);
-    script.onerror = () => resolve(false);
-    document.body.appendChild(script);
-  });
-};
-
-
 export default function CartPage() {
   const router = useRouter();
   const {
@@ -48,95 +30,9 @@ export default function CartPage() {
     couponDiscountAmount
   } = useCart();
 
-
   // Safety check for wallet balance display
   const walletBalance = parseFloat(user?.walletBalance || 0);
     const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
-
-    const handleRazorpayPayment = async (orderResult) => {
-    const isScriptLoaded = await loadRazorpayScript();
-
-    if (!isScriptLoaded) {
-      biteToast.error("Failed to load payment gateway. Please check your connection.");
-      return;
-    }
-
-    try {
-      // A. Call your Payment Service to create a Razorpay Order
-      const createOrderRes = await fetch(`${PAYMENT_API_BASE}/api/payments/create-razorpay-order`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          amount: orderResult.remainingAmount,
-          paymentId: orderResult.paymentId
-        }),
-      });
-
-      const orderData = await createOrderRes.json();
-
-      if (!orderData.success) {
-        throw new Error("Could not initialize payment.");
-      }
-
-      // B. Configure Razorpay Options
-      console.log(process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID)
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, 
-        amount: orderData.order.amount, 
-        currency: "INR",
-        name: "Food Delivery App", 
-        description: `Order Payment`,
-        order_id: orderData.order.id, 
-        handler: async function (response) {
-          // C. Verify Payment after user completes it in the UI overlay
-          try {
-            const verifyRes = await fetch(`${PAYMENT_API_BASE}/api/payments/verify`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                ...response,
-                paymentId: orderResult.paymentId,
-                orderId: orderResult.orderId
-              }),
-            });
-
-            const verifyData = await verifyRes.json();
-
-            if (verifyData.success) {
-              clearCart(); // <--- Uses clearCart from useCart()
-              router.push(`/order-success/${orderResult.orderId}`); // <--- Uses router from useRouter()
-            } else {
-              biteToast.error("Payment verification failed.");
-              router.push(`/orders/${orderResult.orderId}`);
-            }
-          } catch (error) {
-            biteToast.error("Server error during verification.");
-          }
-        },
-        prefill: {
-          name: user?.name || "Customer", // <--- Uses user from useCart()
-          email: user?.email || "",
-          contact: user?.phone || "",
-        },
-        theme: {
-          color: "#f97316", 
-        },
-      };
-
-      // D. Open the Razorpay Checkout Interface
-      const paymentObject = new window.Razorpay(options);
-      
-      paymentObject.on('payment.failed', function (response){
-        biteToast.error("Payment failed or cancelled.");
-        router.push(`/orders/${orderResult.orderId}`);
-      });
-
-      paymentObject.open();
-
-    } catch (error) {
-      biteToast.error(error.message || "Something went wrong loading payment.");
-    }
-  };
 
  const onPlaceOrder = async () => {
   if (!selectedAddress) {

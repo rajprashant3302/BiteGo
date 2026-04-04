@@ -1,0 +1,65 @@
+# ============================================
+# PAYMENT QUERIES
+# ============================================
+
+extend type Query {
+  # Payment Retrieval
+  getPaymentById(id: ID!): Payment
+  getPaymentsByOrder(orderId: ID!): [Payment!]!
+  getPaymentsByUser(userId: ID!, page: Int = 1, pageSize: Int = 20): [Payment!]!
+  
+  # Payment Statistics
+  getPaymentStats(startDate: DateTime, endDate: DateTime): PaymentStats!
+}
+
+# ============================================
+# PAYMENT MUTATIONS
+# ============================================
+
+extend type Mutation {
+  # Payment Processing
+  makePayment(orderId: ID!, input: MakePaymentInput!): Payment!
+  initiatePayment(orderId: ID!, paymentMethod: PaymentMethod!): PaymentInitiation!
+  confirmPayment(paymentId: ID!, transactionReference: String!): Payment!
+  
+  # Refund Management
+  refundPayment(paymentId: ID!, reason: String): Payment!
+  refundOrder(orderId: ID!, reason: String): SuccessResponse!
+  
+  # Wallet Payments
+  payWithWallet(orderId: ID!): Payment!
+  
+  # Payment Verification
+  verifyPayment(paymentId: ID!, transactionReference: String): Payment!
+}
+
+# ============================================
+# INPUT TYPES
+# ============================================
+
+input MakePaymentInput {
+  paymentMethod: PaymentMethod!
+  transactionReference: String
+  amount: Decimal!
+}
+
+# ============================================
+# RESPONSE TYPES
+# ============================================
+
+type PaymentInitiation {
+  paymentId: ID!
+  orderId: ID!
+  amount: Decimal!
+  paymentUrl: String
+  transactionId: String
+}
+
+type PaymentStats {
+  totalPayments: Int!
+  totalRevenue: Decimal!
+  successfulPayments: Int!
+  failedPayments: Int!
+  pendingPayments: Int!
+  avgPaymentValue: Decimal!
+}
