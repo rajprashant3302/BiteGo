@@ -17,7 +17,8 @@ export default function RestaurantDetailsPage() {
   const [menuData, setMenuData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
+  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+  const SEARCH_SERVICE_BASE =process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "/search-api";
 
   useEffect(() => {
     const fetchMenu = async () => {
@@ -132,7 +133,39 @@ export default function RestaurantDetailsPage() {
 }
 
 function MenuCard({ item }) {
-  const { addToCart, removeFromCart, cartItems } = useCart();
+  const { addToCart, removeFromCart, cartItems, user } = useCart();
+  const SEARCH_SERVICE_BASE =
+  process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "/search-api";
+  const handleAddToCart = async () => {
+    console.log("🔥 ADD TO CART CLICKED", item);
+  
+    addToCart(item);
+  
+    try {
+      console.log("📤 Sending Kafka event");
+  
+      await fetch(`${SEARCH_SERVICE_BASE}/api/add-to-cart`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          event: "ADD_TO_CART",
+          restaurantId: item.RestaurantID,
+          itemId: item.ItemID,
+          quantity: quantity + 1,
+          userId: user?.id || user?.email || "anonymous-user",
+        }),
+      });
+  
+      console.log("✅ Kafka event sent");
+  
+    } catch (err) {
+      console.error("❌ Kafka error", err);
+    }
+  };
+  
+  
   const cartItem = cartItems.find(i => i.ItemID === item.ItemID);
   const quantity = cartItem ? cartItem.quantity : 0;
   const isOutOfStock = item.AvailableQuantity <= 0;
@@ -203,14 +236,14 @@ function MenuCard({ item }) {
                 <button onClick={() => removeFromCart(item.ItemID)} className="w-10 h-10 flex items-center justify-center text-white rounded-xl font-black text-xl">-</button>
                 <span className="px-4 font-black text-white">{quantity}</span>
                 <button 
-                  onClick={() => addToCart(item)}
+                  onClick={handleAddToCart}
                   disabled={quantity >= item.AvailableQuantity}
                   className="w-10 h-10 flex items-center justify-center text-white rounded-xl font-black text-xl disabled:opacity-50"
                 >+</button>
               </div>
             ) : (
               <Button 
-                onClick={() => addToCart(item)}
+                onClick={handleAddToCart}
                 disabled={isOutOfStock}
                 size="icon" 
                 className={`w-12 h-12 rounded-2xl shadow-lg transition-all active:scale-90 ${isOutOfStock ? 'bg-slate-200 text-slate-400' : 'bg-orange-500 text-white shadow-orange-200'}`}

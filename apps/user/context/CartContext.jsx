@@ -7,8 +7,8 @@ const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
   const { data: session, status } = useSession();
-  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
-  const AUTH_BASE = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "http://localhost:5000";
+  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+  const AUTH_BASE = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "/auth-api";
 
   const [cartItems, setCartItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -16,6 +16,7 @@ export function CartProvider({ children }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [deliveryMode, setDeliveryMode] = useState('quick');
   const [showAddToast, setShowAddToast] = useState(false);
+  const [isOrdered, setIsOrdered] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [paymentMode, setPaymentMode] = useState('online');
   const [useWallet, setUseWallet] = useState(false);
@@ -202,7 +203,8 @@ export function CartProvider({ children }) {
 
   // Delivery Logic: If subtotal < 299 then ₹50, else ₹0
   const deliveryFee = useMemo(() => {
-    if (appliedCoupon?.CouponCode === 'FREEDEL' || cartSubtotal >= 299 || cartCount === 0) return 0;
+    const appliedCouponCode = appliedCoupon?.CouponCode || appliedCoupon?.code;
+    if (appliedCouponCode === 'FREEDEL' || cartSubtotal >= 299 || cartCount === 0) return 0;
     return 50;
   }, [appliedCoupon, cartSubtotal, cartCount]);
 
@@ -221,6 +223,7 @@ export function CartProvider({ children }) {
       cartItems, cartCount, cartSubtotal, cartTotal, totalSavings, deliveryFee,
       isCartOpen, setIsCartOpen, addToCart, removeFromCart, removeItemCompletely, clearCart,
       deliveryMode, setDeliveryMode, showAddToast, setShowAddToast,
+      isOrdered, setIsOrdered,
       selectedAddress, setSelectedAddress, paymentMode, setPaymentMode,
       useWallet, setUseWallet, amountFromWallet,
       couponInput, setCouponInput, appliedCoupon, couponError, couponDiscountAmount, handleApplyCoupon, removeCoupon

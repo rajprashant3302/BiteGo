@@ -36,9 +36,8 @@ export default function EditProfilePage() {
     const fetchUserProfile = async () => {
       if (status === "authenticated" && session?.user?.id) {
         try {
-          const apiUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL 
-            ? `${process.env.NEXT_PUBLIC_AUTH_SERVICE_URL}/api/auth/profile/${session.user.id}` 
-            : `http://localhost:5000/api/auth/profile/${session.user.id}`;
+          const authBase = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "/auth-api";
+          const apiUrl = `${authBase}/api/auth/profile/${session.user.id}`;
           
           const response = await fetch(apiUrl);
           
@@ -115,9 +114,8 @@ export default function EditProfilePage() {
         finalImageUrl = await uploadToCloudinary(selectedFile);
       }
 
-      const apiUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL 
-        ? `${process.env.NEXT_PUBLIC_AUTH_SERVICE_URL}/api/auth/update-profile` 
-        : "http://localhost:5000/api/auth/update-profile"; 
+      const authBase = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "/auth-api";
+      const apiUrl = `${authBase}/api/auth/update-profile`;
 
       const response = await fetch(apiUrl, {
         method: "PUT",

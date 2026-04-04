@@ -4,3 +4,4 @@ elasticsearch
 prisma
 pydantic
 python-dotenv
+kafka-python

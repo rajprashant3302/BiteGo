@@ -5,11 +5,26 @@ import { CheckCircle2, ArrowRight, Wallet } from 'lucide-react';
 import { useRouter, useParams } from 'next/navigation';
 import Button from '@/components/ui/Button';
 
+function normalizeRouteParam(param) {
+  if (typeof param === 'string') return param;
+  if (Array.isArray(param)) return param[0];
+  return undefined;
+}
+
 export default function SuccessPage() {
   const router = useRouter();
   const params = useParams();
 
-  const orderId = params.orderId;
+  const orderId = normalizeRouteParam(params?.orderId);
+
+  if (!orderId) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans">
+        <p className="text-slate-600 font-bold">Invalid order link.</p>
+        <Button className="mt-4" onClick={() => router.push('/')}>Home</Button>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white flex flex-col items-center justify-center p-6 font-sans">
@@ -63,7 +78,7 @@ export default function SuccessPage() {
 
           <Button
             className="h-16 rounded-2xl text-lg shadow-xl shadow-orange-100"
-            onClick={() => router.push(`/orders/${orderId}`)}
+            onClick={() => router.push(`/orders/${orderId}/track`)}
           >
             Track My Order <ArrowRight className="ml-2" size={20} />
           </Button>

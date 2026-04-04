@@ -5,8 +5,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Star, Timer, Plus, Tag } from 'lucide-react';
 import { cn } from '@/components/ui/cn';
 import Button from '@/components/ui/Button';
+import { useCart } from '@/context/CartContext';
+
+const SEARCH_SERVICE_BASE =
+  process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "/search-api";
 
 export default function RestaurantCard({ restaurant, isFavorite, onToggleFavorite }) {
+  const { user } = useCart();
   const [index, setIndex] = useState(0);
   const items = restaurant.menuItems || [];
   
@@ -26,11 +31,37 @@ export default function RestaurantCard({ restaurant, isFavorite, onToggleFavorit
 
   const activeItem = items[index];
 
+  const handleClick = async () => {
+    await fetch(`${SEARCH_SERVICE_BASE}/api/view-menu`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: "VIEW_MENU",
+        restaurantId: restaurant.RestaurantID,
+        userId: user?.id || user?.email || "anonymous-user",
+      }),
+    });
+  };
+  const handleViewMenu = async (e) => {
+    e.stopPropagation();
+
+    await fetch(`${SEARCH_SERVICE_BASE}/api/view-menu`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: "VIEW_MENU",
+        restaurantId: restaurant.RestaurantID,
+        userId: user?.id || user?.email || "anonymous-user",
+      }),
+    });
+  };
+
   return (
     <motion.div
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
+      onClick={handleClick} //for event handling
       className="group flex flex-col bg-white rounded-[32px] overflow-hidden border-2 border-gray-100/50 shadow-sm hover:shadow-2xl hover:border-orange-500/10 transition-all duration-500 h-full relative"
     >
       <div className="relative h-56 overflow-hidden bg-gray-100">
@@ -105,7 +136,7 @@ export default function RestaurantCard({ restaurant, isFavorite, onToggleFavorit
                 <span className="text-xs font-black text-gray-900 tracking-tight">FAST TRACK</span>
             </div>
           </div>
-          <Button size="icon" className="w-12 h-12 rounded-2xl shadow-lg shadow-orange-500/20 active:scale-90 transition-transform">
+          <Button size="icon" className="w-12 h-12 rounded-2xl shadow-lg shadow-orange-500/20 active:scale-90 transition-transform" onClick={(e) => handleViewMenu(e)}>
             <Plus size={20} />
           </Button>
         </div>

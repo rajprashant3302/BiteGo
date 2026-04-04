@@ -10,7 +10,7 @@ env_path = Path(__file__).resolve().parent.parent.parent / '.env'
 load_dotenv(dotenv_path=env_path)
 
 # Force the hostname to the service name defined in docker-compose
-ES_URL = os.getenv("ES_HOST", "http://elasticsearch:9200")
+ES_URL = os.getenv("ES_HOST","http://bitego_es:9200")
 
 # Initialize ES with explicit headers to fix the "compatible-with=9" error
 es = Elasticsearch(

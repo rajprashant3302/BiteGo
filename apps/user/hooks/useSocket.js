@@ -7,10 +7,11 @@ export const useSocket = (token) => {
 
     useEffect(() => {
         if (token) {
-            // ✅ Fix: Use NEXT_PUBLIC_ and provide a fallback for local dev
-            const backendUrl = process.env.NEXT_PUBLIC_CHAT_SERVICE_URL || "http://localhost:5003";
-            
+            const backendUrl = process.env.NEXT_PUBLIC_CHAT_SERVICE_URL || undefined;
+            const socketPath = process.env.NEXT_PUBLIC_CHAT_SOCKET_PATH || "/chat-socket.io";
+
             const socketInstance = io(backendUrl, {
+                path: socketPath,
                 auth: { token }
             });
 

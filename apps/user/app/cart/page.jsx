@@ -10,7 +10,7 @@ import CheckoutOverlay from '@/components/cart/CheckoutOverlay';
 import { useRouter } from 'next/navigation';
 import { biteToast } from '@/lib/toast';
 
-const PAYMENT_API_BASE = process.env.NEXT_PUBLIC_PAYMENT_SERVICE_URL || "http://localhost:5005";
+const PAYMENT_API_BASE = process.env.NEXT_PUBLIC_PAYMENT_SERVICE_URL || "/payment-api";
 
 
 const loadRazorpayScript = () => {
@@ -38,6 +38,7 @@ export default function CartPage() {
     deliveryFee,
     appliedCoupon,
     isOrdered,
+    setIsOrdered,
     selectedAddress,
     clearCart,
     paymentMode,
@@ -51,12 +52,13 @@ export default function CartPage() {
 
   // Safety check for wallet balance display
   const walletBalance = parseFloat(user?.walletBalance || 0);
-    const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
+    const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
 
     const handleRazorpayPayment = async (orderResult) => {
     const isScriptLoaded = await loadRazorpayScript();
 
     if (!isScriptLoaded) {
+      setIsOrdered(false);
       biteToast.error("Failed to load payment gateway. Please check your connection.");
       return;
     }
@@ -103,13 +105,16 @@ export default function CartPage() {
             const verifyData = await verifyRes.json();
 
             if (verifyData.success) {
-              clearCart(); // <--- Uses clearCart from useCart()
+              await clearCart();
+              setIsOrdered(false);
               router.push(`/order-success/${orderResult.orderId}`); // <--- Uses router from useRouter()
             } else {
+              setIsOrdered(false);
               biteToast.error("Payment verification failed.");
               router.push(`/orders/${orderResult.orderId}`);
             }
           } catch (error) {
+            setIsOrdered(false);
             biteToast.error("Server error during verification.");
           }
         },
@@ -127,6 +132,7 @@ export default function CartPage() {
       const paymentObject = new window.Razorpay(options);
       
       paymentObject.on('payment.failed', function (response){
+        setIsOrdered(false);
         biteToast.error("Payment failed or cancelled.");
         router.push(`/orders/${orderResult.orderId}`);
       });
@@ -134,6 +140,7 @@ export default function CartPage() {
       paymentObject.open();
 
     } catch (error) {
+      setIsOrdered(false);
       biteToast.error(error.message || "Something went wrong loading payment.");
     }
   };
@@ -145,6 +152,8 @@ export default function CartPage() {
   }
 
   try {
+    setIsOrdered(true);
+
     // 1. Call your placeOrder API (The one we wrote earlier)
     const response = await fetch(`${API_BASE}/api/orders/place-order`, {
       method: 'POST',
@@ -160,7 +169,7 @@ export default function CartPage() {
         addressId: selectedAddress.AddressID,
         useWallet: useWallet,
         paymentMethod: paymentMode,
-        couponCode: appliedCoupon?.CouponCode || null
+        couponCode: appliedCoupon?.CouponCode || appliedCoupon?.code || null
       })
     });
 
@@ -171,13 +180,16 @@ export default function CartPage() {
     // 2. Handle Payment Logic
     if (paymentMode === 'cod' || result.remainingAmount === 0) {
       // If COD or fully paid by Wallet, go straight to success
+      await clearCart();
+      setIsOrdered(false);
       router.push(`/order-success/${result.orderId}`);
     } else {
       // If Online, trigger Razorpay
-      handleRazorpayPayment(result);
+      await handleRazorpayPayment(result);
     }
 
   } catch (err) {
+    setIsOrdered(false);
     biteToast.error(err.message || "Something went wrong");
   }
 };

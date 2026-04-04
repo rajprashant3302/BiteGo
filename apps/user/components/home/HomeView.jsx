@@ -26,8 +26,8 @@ export default function HomeView() {
   // --- NEW: Location State ---
   const [userLocation, setUserLocation] = useState("Fetching location...");
 
-  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
-  const DELIVERY_API_BASE = process.env.NEXT_PUBLIC_DELIVERY_SERVICE_URL || "http://localhost:5004"; // Your new service
+  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+  const DELIVERY_API_BASE = process.env.NEXT_PUBLIC_DELIVERY_SERVICE_URL || "/delivery-api";
   const router = useRouter();
 
   useEffect(() => {

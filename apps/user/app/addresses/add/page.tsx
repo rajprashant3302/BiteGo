@@ -7,11 +7,14 @@ import mapboxgl from "mapbox-gl";
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { FiArrowLeft, FiMapPin, FiSearch, FiLoader } from "react-icons/fi";
 
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
-
 export default function AddAddressMapPage() {
   const router = useRouter();
   const { data: session } = useSession();
+
+  // `NEXT_PUBLIC_*` is inlined at build time in Next.js. If the token is not provided
+  // during the Docker build, Mapbox will throw at runtime; so we guard gracefully.
+  const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+  const hasMapboxToken = mapboxToken.length > 0;
 
   const [location, setLocation] = useState({
     longitude: 78.9629,
@@ -32,9 +35,18 @@ export default function AddAddressMapPage() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [mapError, setMapError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!mapContainerRef.current) return;
+
+    if (!hasMapboxToken) {
+      setMapError("Mapbox token is missing. Set NEXT_PUBLIC_MAPBOX_TOKEN to enable the map.");
+      return;
+    }
+
+    setMapError(null);
+    mapboxgl.accessToken = mapboxToken;
 
     if (!mapRef.current) {
       mapRef.current = new mapboxgl.Map({
@@ -73,13 +85,16 @@ export default function AddAddressMapPage() {
       });
       markerRef.current?.setLngLat([location.longitude, location.latitude]);
     }
-  }, [location.latitude, location.longitude]); 
+  }, [location.latitude, location.longitude, hasMapboxToken, mapboxToken]);
 
 
   const reverseGeocode = useCallback(async (lng: number, lat: number) => {
+    if (!mapboxToken) return;
     setIsSearching(true);
     try {
-      const res = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxgl.accessToken}`);
+      const res = await fetch(
+        `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxToken}`
+      );
       const data = await res.json();
       
       if (data.features && data.features.length > 0) {
@@ -104,7 +119,7 @@ export default function AddAddressMapPage() {
     } finally {
       setIsSearching(false);
     }
-  }, []);
+  }, [mapboxToken]);
 
   const handleSearch = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const query = e.target.value;
@@ -134,9 +149,8 @@ export default function AddAddressMapPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL 
-        ? `${process.env.NEXT_PUBLIC_AUTH_SERVICE_URL}/api/auth/addresses/add`
-        : "http://localhost:5000/api/auth/addresses/add";
+      const authBase = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "/auth-api";
+      const apiUrl = `${authBase}/api/auth/addresses/add`;
 
       await fetch(apiUrl, {
         method: "POST",
@@ -162,6 +176,13 @@ export default function AddAddressMapPage() {
 
   return (
     <div className="h-screen flex flex-col bg-white font-sans relative">
+      {!hasMapboxToken && (
+        <div className="mx-auto w-full max-w-xl px-6 pt-6">
+          <div className="rounded-xl border border-orange-200 bg-orange-50 text-orange-800 px-4 py-3 text-sm font-medium">
+            Mapbox token missing. Set `NEXT_PUBLIC_MAPBOX_TOKEN` and restart the container to use the address map.
+          </div>
+        </div>
+      )}
       
       {/* Search Bar Overlay */}
       <div className="absolute top-0 left-0 w-full z-10 p-4 pt-6 bg-gradient-to-b from-black/50 to-transparent">
@@ -207,6 +228,13 @@ export default function AddAddressMapPage() {
       {/* Native Mapbox Container */}
       <div className="flex-grow relative bg-gray-100">
         <div ref={mapContainerRef} className="absolute inset-0 w-full h-full" />
+        {mapError && (
+          <div className="absolute inset-0 flex items-center justify-center px-6 text-center">
+            <div className="rounded-2xl border border-orange-200 bg-white/90 backdrop-blur px-6 py-5 shadow-sm text-orange-800 text-sm font-semibold">
+              {mapError}
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Bottom Form Sheet (Zomato/Swiggy Style) */}

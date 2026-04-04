@@ -22,9 +22,8 @@ export default function SavedAddressesPage() {
         const fetchAddresses = async () => {
             if (status === "authenticated" && session?.user?.id) {
                 try {
-                    const apiUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL
-                        ? `${process.env.NEXT_PUBLIC_AUTH_SERVICE_URL}/api/auth/addresses/${session.user.id}`
-                        : `http://localhost:5000/api/auth/addresses/${session.user.id}`;
+                    const authBase = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "/auth-api";
+                    const apiUrl = `${authBase}/api/auth/addresses/${session.user.id}`;
 
                     const response = await fetch(apiUrl);
                     if (response.ok) {
@@ -53,9 +52,8 @@ export default function SavedAddressesPage() {
         if (!confirm("Are you sure you want to delete this address?")) return;
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL
-                ? `${process.env.NEXT_PUBLIC_AUTH_SERVICE_URL}/api/auth/addresses/${addressId}`
-                : `http://localhost:5000/api/auth/addresses/${addressId}`;
+            const authBase = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "/auth-api";
+            const apiUrl = `${authBase}/api/auth/addresses/${addressId}`;
 
             const res = await fetch(apiUrl, { method: "DELETE" });
 

@@ -11,9 +11,17 @@ import InvoiceTemplate from '@/components/cart/InvoiceTemplate';
 import { biteToast } from '@/lib/toast';
 import { io } from 'socket.io-client'
 
+function normalizeRouteParam(param) {
+  if (typeof param === 'string') return param;
+  if (Array.isArray(param)) return param[0];
+  return undefined;
+}
+
 export default function OrderTracking() {
-  const { orderId } = useParams();
+  const params = useParams();
+  const orderId = normalizeRouteParam(params?.orderId);
   const [order, setOrder] = useState(null);
+  const [loadError, setLoadError] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const router = useRouter();
 
@@ -22,10 +30,32 @@ export default function OrderTracking() {
   useEffect(() => {
     if (!orderId) return;
 
-    fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL}/api/orders/${orderId}`)
-      .then(res => res.json())
-      .then(data => setOrder(data))
-      .catch(err => console.error("Failed to fetch order", err));
+    let cancelled = false;
+    (async () => {
+      setLoadError(null);
+      try {
+        const base =
+          process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+        const res = await fetch(`${base}/api/orders/${orderId}`);
+        const data = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok || !data?.OrderID) {
+          setOrder(null);
+          setLoadError(data?.message || data?.error || "Could not load this order.");
+          return;
+        }
+        setOrder(data);
+      } catch (err) {
+        if (!cancelled) {
+          console.error("Failed to fetch order", err);
+          setOrder(null);
+          setLoadError("Network error. Check that the order service is reachable.");
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [orderId]);
 
 
@@ -35,7 +65,10 @@ export default function OrderTracking() {
     // Prevent connecting if we don't know who the user is yet
     if (!order?.UserID) return;
 
-    const socket = io(process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001");
+    const socket = io(undefined, {
+      path: process.env.NEXT_PUBLIC_ORDER_SOCKET_PATH || "/order-socket.io",
+      transports: ['websocket', 'polling'],
+    });
     
     // Join the room
     socket.emit('join_room', `user_${order.UserID}`);
@@ -78,7 +111,7 @@ export default function OrderTracking() {
 
     try {
       // 1. Check DB (Keep existing logic)
-      const checkRes = await fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL}/api/orders/${orderId}/invoice-check`);
+      const checkRes = await fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api"}/api/orders/${orderId}/invoice-check`);
       const checkData = await checkRes.json();
 
       if (checkData.exists) {
@@ -118,7 +151,7 @@ export default function OrderTracking() {
 
       // 3. Upload & Save (Keep existing logic)
       const uploadedUrl = await uploadToCloudinary(pdfBlob);
-      await fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL}/api/orders/invoice/save`, {
+      await fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api"}/api/orders/invoice/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId, pdfUrl: uploadedUrl })
@@ -135,16 +168,43 @@ export default function OrderTracking() {
     }
   };
 
+  if (loadError) {
+    return (
+      <main className="min-h-screen bg-slate-50 pt-12 pb-24 px-6 font-sans flex flex-col items-center justify-center">
+        <p className="text-slate-600 font-bold text-center max-w-md mb-6">{loadError}</p>
+        <button
+          type="button"
+          onClick={() => router.push("/orders")}
+          className="px-6 py-3 rounded-2xl bg-orange-500 text-white font-black"
+        >
+          Back to my orders
+        </button>
+      </main>
+    );
+  }
+
   if (!order) return <div className="min-h-screen bg-slate-50 p-12 animate-pulse" />;
 
   const steps = [
     { label: 'Confirmed', status: 'Placed' },
     { label: 'Preparing', status: 'Preparing' },
+    { label: 'Ready', status: 'Prepared' },
     { label: 'On the Way', status: 'PickedUp' },
     { label: 'Delivered', status: 'Delivered' },
   ];
 
-  const currentStep = steps.findIndex(s => s.status === order.OrderStatus);
+  const statusRank = {
+    Placed: 0,
+    Preparing: 1,
+    Prepared: 2,
+    PickedUp: 3,
+    Delivered: 4,
+    Cancelled: -1,
+  };
+  const currentStep = Math.max(
+    0,
+    statusRank[order.OrderStatus] ?? 0
+  );
 
   return (
     <main className="min-h-screen bg-slate-50 pt-12 pb-24 font-sans">
@@ -213,7 +273,7 @@ export default function OrderTracking() {
           </div>
           <div className="relative flex justify-between">
             <div className="absolute top-5 left-0 w-full h-1 bg-slate-100 -z-0" />
-            <div className="absolute top-5 left-0 h-1 bg-orange-500 transition-all duration-1000 -z-0" style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }} />
+            <div className="absolute top-5 left-0 h-1 bg-orange-500 transition-all duration-1000 -z-0" style={{ width: `${steps.length > 1 ? (currentStep / (steps.length - 1)) * 100 : 0}%` }} />
             {steps.map((step, idx) => (
               <div key={idx} className="relative z-10 flex flex-col items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 border-white shadow-lg ${idx <= currentStep ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
@@ -244,7 +304,7 @@ export default function OrderTracking() {
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Delivery Partner</p>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 font-black">{order.deliveryPartner?.user?.Name[0] || '?'}</div>
+                <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 font-black">{order.deliveryPartner?.user?.Name?.[0] || '?'}</div>
                 <div>
                   <p className="font-black text-slate-900">{order.deliveryPartner?.user?.Name || 'Assigning...'}</p>
                   <p className="text-xs font-bold text-slate-400">4.8 ★ Professional</p>
@@ -258,9 +318,9 @@ export default function OrderTracking() {
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Bill Summary</p>
             <div className="space-y-3">
-              {order.items.map(item => (
+              {(order.items || []).map((item) => (
                 <div key={item.OrderItemID} className="flex justify-between text-sm">
-                  <span className="font-black text-slate-900">{item.Quantity}x <span className="text-slate-400 font-bold ml-1">{item.item.ItemName}</span></span>
+                  <span className="font-black text-slate-900">{item.Quantity}x <span className="text-slate-400 font-bold ml-1">{item.item?.ItemName ?? "Item"}</span></span>
                   <span className="font-bold text-slate-900">₹{parseFloat(item.ItemPrice).toFixed(0)}</span>
                 </div>
               ))}

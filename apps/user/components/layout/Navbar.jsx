@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import Image from "next/image";
 
 export default function Navbar() {
+  const SEARCH_API_BASE = process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "/search-api";
   const router = useRouter();
   const dropdownRef = useRef(null);
   const [results, setResults] = useState([]);
@@ -47,7 +48,7 @@ export default function Navbar() {
       setShowDropdown(true);
 
       try {
-        const response = await fetch(`http://localhost:8001/search?q=${encodeURIComponent(searchQuery)}`);
+        const response = await fetch(`${SEARCH_API_BASE}/search?q=${encodeURIComponent(searchQuery)}`);
         const json = await response.json();
         setResults(json.data || []);
       } catch (err) {
@@ -60,7 +61,7 @@ export default function Navbar() {
 
     const debounceTimer = setTimeout(fetchResults, 300);
     return () => clearTimeout(debounceTimer);
-  }, [searchQuery]);
+  }, [searchQuery, SEARCH_API_BASE]);
 
   // 2. UI LOGIC: Close dropdown when clicking outside
   useEffect(() => {

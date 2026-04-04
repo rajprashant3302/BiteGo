@@ -10,16 +10,24 @@ import { useRouter, useParams } from 'next/navigation';
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 
-const DELIVERY_SOCKET_URL = process.env.NEXT_PUBLIC_DELIVERY_SERVICE_URL || "http://localhost:5004";
-const ORDER_SERVICE_URL = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
-mapboxgl.accessToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
+const DELIVERY_SOCKET_URL = process.env.NEXT_PUBLIC_DELIVERY_SERVICE_URL;
+const DELIVERY_SOCKET_PATH = process.env.NEXT_PUBLIC_DELIVERY_SOCKET_PATH || "/delivery-socket.io";
+const ORDER_SERVICE_URL = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+
+function normalizeRouteParam(param) {
+    if (typeof param === "string") return param;
+    if (Array.isArray(param)) return param[0];
+    return undefined;
+}
 
 export default function UserTrackingPage() {
     const router = useRouter();
     const params = useParams();
-    const orderId = params?.orderId;
+    const orderId = normalizeRouteParam(params?.orderId);
+    const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || "";
 
     const [order, setOrder] = useState(null);
+    const [loadError, setLoadError] = useState(null);
     const [orderStatus, setOrderStatus] = useState("Loading...");
     const [driverLocation, setDriverLocation] = useState(null);
 
@@ -30,25 +38,51 @@ export default function UserTrackingPage() {
     // 1. Fetch Order Data
     useEffect(() => {
         if (!orderId) return;
+        let cancelled = false;
         const fetchOrder = async () => {
+            setLoadError(null);
             try {
                 const res = await fetch(`${ORDER_SERVICE_URL}/api/orders/${orderId}`);
-                const data = await res.json();
-                if (res.ok) {
-                    setOrder(data);
-                    setOrderStatus(data.tracking?.currentStatus || data.OrderStatus);
+                const data = await res.json().catch(() => ({}));
+                if (cancelled) return;
+                if (!res.ok || !data?.OrderID) {
+                    setOrder(null);
+                    setLoadError(data?.message || data?.error || "Could not load this order.");
+                    return;
                 }
+                setOrder(data);
+                setOrderStatus(data.tracking?.currentStatus || data.OrderStatus);
             } catch (err) {
-                console.error("Failed to fetch order", err);
+                if (!cancelled) {
+                    console.error("Failed to fetch order", err);
+                    setOrder(null);
+                    setLoadError("Network error loading order.");
+                }
             }
         };
         fetchOrder();
+        return () => {
+            cancelled = true;
+        };
     }, [orderId]);
+
+    useEffect(() => {
+        if (!order) return;
+        if (!mapboxToken) {
+            setLoadError((prev) =>
+                prev ||
+                "Mapbox token is missing. Set NEXT_PUBLIC_MAPBOX_TOKEN (Docker build arg) to show the map."
+            );
+        }
+    }, [order, mapboxToken]);
 
     // 2. Live WebSockets
     useEffect(() => {
         if (!orderId) return;
-        const socket = io(DELIVERY_SOCKET_URL, { transports: ['websocket', 'polling'] });
+        const socket = io(DELIVERY_SOCKET_URL, {
+            path: DELIVERY_SOCKET_PATH,
+            transports: ['websocket', 'polling'],
+        });
 
         socket.on("connect", () => {
             console.log("🟢 Connected to live tracking server");
@@ -63,13 +97,24 @@ export default function UserTrackingPage() {
 
     // 3. Mapbox Initialization
     useEffect(() => {
-        if (!mapContainerRef.current || !order || !mapboxgl.accessToken) return;
+        if (!mapContainerRef.current || !order || !mapboxToken) return;
         if (mapRef.current) return;
 
-        const restLng = parseFloat(order.restaurant.Longitude);
-        const restLat = parseFloat(order.restaurant.Latitude);
-        const userLng = parseFloat(order.address.Longitude);
-        const userLat = parseFloat(order.address.Latitude);
+        const restLng = parseFloat(order.restaurant?.Longitude);
+        const restLat = parseFloat(order.restaurant?.Latitude);
+        const userLng = parseFloat(order.address?.Longitude);
+        const userLat = parseFloat(order.address?.Latitude);
+
+        if ([restLng, restLat, userLng, userLat].some((n) => Number.isNaN(n))) {
+            setLoadError(
+                (prev) =>
+                    prev ||
+                    "Map cannot load: restaurant or address coordinates are missing."
+            );
+            return;
+        }
+
+        mapboxgl.accessToken = mapboxToken;
 
         mapRef.current = new mapboxgl.Map({
             container: mapContainerRef.current,
@@ -103,7 +148,7 @@ export default function UserTrackingPage() {
 
             // Fetch Route
             try {
-                const routeRes = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${restLng},${restLat};${userLng},${userLat}?geometries=geojson&access_token=${mapboxgl.accessToken}`);
+                const routeRes = await fetch(`https://api.mapbox.com/directions/v5/mapbox/driving/${restLng},${restLat};${userLng},${userLat}?geometries=geojson&access_token=${mapboxToken}`);
                 const routeData = await routeRes.json();
                 if (routeData.routes?.length) {
                     map.addSource("route", { type: "geojson", data: { type: "Feature", geometry: routeData.routes[0].geometry } });
@@ -113,10 +158,12 @@ export default function UserTrackingPage() {
         });
 
         return () => {
-            map.remove();
+            try {
+                map.remove();
+            } catch (_) {}
             mapRef.current = null;
         };
-    }, [order]);
+    }, [order, mapboxToken]);
 
     // 4. Smooth Follow (Fly To) + Marker Snap
     useEffect(() => {
@@ -141,7 +188,7 @@ export default function UserTrackingPage() {
         <main className="min-h-screen bg-slate-900 text-white flex flex-col relative overflow-hidden">
             {/* Loading Overlay */}
             <AnimatePresence>
-                {!order && (
+                {!order && !loadError && (
                     <motion.div 
                         exit={{ opacity: 0 }}
                         className="absolute inset-0 z-50 bg-slate-900 flex flex-col items-center justify-center gap-4"
@@ -151,6 +198,24 @@ export default function UserTrackingPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {loadError && (
+                <div className="absolute inset-0 z-50 flex flex-col items-center justify-center gap-4 bg-slate-900 px-6 text-center">
+                    <p className="text-slate-300 font-bold max-w-md">{loadError}</p>
+                    {!mapboxToken && (
+                        <p className="text-slate-500 text-sm max-w-md">
+                            Add <code className="text-orange-300">NEXT_PUBLIC_MAPBOX_TOKEN</code> at build time (Docker build args) to show the live map.
+                        </p>
+                    )}
+                    <button
+                        type="button"
+                        onClick={() => router.push(`/orders/${orderId}`)}
+                        className="px-6 py-3 rounded-2xl bg-orange-500 text-white font-black"
+                    >
+                        Order details
+                    </button>
+                </div>
+            )}
 
             {/* Map Container - Always in DOM */}
             <div className="flex-grow relative bg-[#0d0f14]">
@@ -176,7 +241,7 @@ export default function UserTrackingPage() {
                     <div className="max-w-md mx-auto space-y-6">
                         <div>
                             <h2 className="text-2xl font-black">{orderStatus === "Delivered" ? "Enjoy your meal!" : orderStatus}</h2>
-                            <p className="text-slate-400 text-sm">Order #{order.OrderID.slice(-8).toUpperCase()}</p>
+                            <p className="text-slate-400 text-sm">Order #{order.OrderID?.slice(-8).toUpperCase()}</p>
                         </div>
 
                         {order.deliveryPartner && orderStatus !== "Delivered" && (
