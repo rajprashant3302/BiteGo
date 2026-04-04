@@ -15,12 +15,14 @@ build/
 
 # Docker
 *.log
+*Zone.Identifier
 
 # OS / Editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+.codex
 
 # Coverage
 coverage/
