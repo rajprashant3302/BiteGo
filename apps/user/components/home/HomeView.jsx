@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Search, ChevronRight, Loader2, XCircle, MapPin } from 'lucide-react'; // <-- Added MapPin
+import { Search, ChevronRight, Loader2, XCircle } from 'lucide-react';
 import { cn } from '@/components/ui/cn';
 import Button from '@/components/ui/Button';
 import Categories from './Categories';
@@ -11,9 +11,9 @@ import { useCart } from '@/context/CartContext';
 import { useRouter } from "next/navigation";
 
 export default function HomeView() {
-  const {
-    searchQuery,
-    setSearchQuery,
+  const { 
+    searchQuery, 
+    setSearchQuery, 
     user,
   } = useCart();
 
@@ -23,11 +23,7 @@ export default function HomeView() {
   const [isLoading, setIsLoading] = useState(true);
   const [greeting, setGreeting] = useState('Good Morning');
 
-  // --- NEW: Location State ---
-  const [userLocation, setUserLocation] = useState("Fetching location...");
-
   const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
-  const DELIVERY_API_BASE = process.env.NEXT_PUBLIC_DELIVERY_SERVICE_URL || "http://localhost:5004"; // Your new service
   const router = useRouter();
 
   useEffect(() => {
@@ -53,60 +49,25 @@ export default function HomeView() {
     else setGreeting('Good Evening');
   }, [API_BASE]);
 
-  // --- NEW: Geolocation & Sync Logic ---
-  useEffect(() => {
-    if ("geolocation" in navigator) {
-      navigator.geolocation.getCurrentPosition(
-        async (position) => {
-          const { latitude, longitude } = position.coords;
-
-          // console.log("Location : ", latitude, longitude)
-
-          // setUserLocation(`${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
-          const res = await fetch(
-            `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
-          );
-          const data = await res.json();
-          // console.log("Data ", data)
-          setUserLocation(data.display_name || data.address.city || data.address.town || "Your Location");
-
-          // Only sync if user exists
-
-          // console.log("user", user)
-          if (user?.id) {
-            try {
-              await fetch(`${DELIVERY_API_BASE}/api/location/user`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  userId: user.id,
-                  lat: latitude,
-                  lng: longitude
-                })
-              });
-            } catch (error) {
-              console.error("Failed to sync location:", error);
-            }
-          }
-        },
-        (error) => {
-          console.error("Geolocation error:", error);
-          setUserLocation("Location unavailable");
-        }
-      );
-    } else {
-      setUserLocation("Geolocation not supported");
-    }
-  }, [user?.id]);
-
+  // 2. MEMOIZED FILTERING LOGIC (Fixed & Merged)
   const filteredRestaurants = useMemo(() => {
     return restaurants.filter(r => {
+      // --- A. Category Logic ---
       let matchCat = false;
-      if (activeCategory === 'All') matchCat = true;
-      else if (activeCategory === 'Top Rated') matchCat = parseFloat(r.Rating) >= 4.5;
-      else if (activeCategory === 'Offers') matchCat = r.offers && r.offers.some(o => o.IsActive);
-      else matchCat = r.CategoryName === activeCategory;
 
+      if (activeCategory === 'All') {
+        matchCat = true;
+      } else if (activeCategory === 'Top Rated') {
+        matchCat = parseFloat(r.Rating) >= 4.5;
+      } else if (activeCategory === 'Offers') {
+        // ✅ Checks if there are active offers in the array
+        matchCat = r.offers && r.offers.some(o => o.IsActive);
+      } else {
+        // ✅ Matches specific category names (Pizza, Burgers, etc.)
+        matchCat = r.CategoryName === activeCategory;
+      }
+
+      // --- B. Search Logic ---
       const searchLower = searchQuery.toLowerCase();
       const matchSearch =
         searchQuery === "" ||
@@ -121,13 +82,14 @@ export default function HomeView() {
 
   const toggleFavorite = (e, id) => {
     e.stopPropagation();
-    setFavorites(prev =>
+    setFavorites(prev => 
       prev.includes(id) ? prev.filter(f => f !== id) : [...prev, id]
     );
   };
 
   return (
     <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 pb-32 md:pb-12 space-y-12 overflow-hidden">
+      {/* Wave Animation Styles */}
       <style>{`
         @keyframes wave {
           0%, 60%, 100% { transform: rotate(0deg); }
@@ -142,17 +104,11 @@ export default function HomeView() {
         }
       `}</style>
 
-      {/* --- UPDATED: Hero Section with Location --- */}
+      {/* Hero Section */}
       <section className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-        <div className="space-y-4">
-          {/* Location Badge */}
-          <div className="flex items-center gap-2 text-gray-500 font-medium bg-gray-100 w-fit max-w-[200px] px-3 py-1.5 rounded-full text-sm whitespace-nowrap overflow-hidden text-ellipsis">
-            <MapPin size={16} className="text-orange-500 shrink-0" />
-            <span className="truncate">{userLocation}</span>
-          </div>
-
+        <div className="space-y-2">
           <h1 className="text-3xl md:text-5xl font-black text-gray-900 tracking-tight leading-none">
-            {greeting}, <span className="text-orange-500">{user?.name?.split(' ')[0] || 'Foodie'}</span>
+            {greeting}, <span className="text-orange-500">{user.name.split(' ')[0]}</span>
             <span className="inline-block animate-wave ml-2 origin-bottom-right">👋</span>
           </h1>
           <p className="text-gray-500 text-lg font-medium">Ready to bite into something new?</p>
@@ -161,6 +117,7 @@ export default function HomeView() {
 
       <DealsBanner />
 
+      {/* Main List Section */}
       <section>
         <div className="flex items-center justify-between mb-8">
           <h2 className="text-2xl md:text-3xl font-black text-gray-900 tracking-tight">Popular Nearby</h2>
@@ -169,6 +126,7 @@ export default function HomeView() {
           </Button>
         </div>
 
+        {/* Categories Component */}
         <Categories activeCategory={activeCategory} setActiveCategory={setActiveCategory} />
 
         {isLoading ? (
@@ -193,6 +151,7 @@ export default function HomeView() {
             ))}
           </div>
         ) : (
+          /* Empty State */
           <div className="flex flex-col items-center justify-center py-24 text-center">
             <XCircle size={64} className="text-gray-200 mb-6" />
             <h3 className="text-2xl font-black text-gray-900">No Bites Found</h3>

@@ -3,7 +3,7 @@ require("dotenv").config();
 const { Kafka } = require("kafkajs");
 
 // Import Handlers
-const {handleAuthEvent} = require("./handlers/authHandler");
+const handleAuthEvent = require("./handlers/authHandler");
 const handleOrderEvent = require("./handlers/orderHandler");
 const handleInvoiceEvent = require("./handlers/invoiceHandler");
 

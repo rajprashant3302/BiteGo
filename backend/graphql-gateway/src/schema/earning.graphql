@@ -1,0 +1,402 @@
+# ============================================
+# EARNING TYPES
+# ============================================
+
+type Earning {
+  id: ID!
+  earningType: EarningType!
+  amount: Decimal!
+  description: String
+  referenceId: ID
+  referenceType: String
+  userId: ID!
+  user: User
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type EarningBreakdown {
+  totalEarnings: Decimal!
+  completedOrders: Int!
+  avgPerOrder: Decimal!
+  bonusEarnings: Decimal!
+  deductions: Decimal!
+  netEarnings: Decimal!
+  pendingPayouts: Decimal!
+  totalPayouts: Decimal!
+}
+
+type DailyEarning {
+  date: DateTime!
+  totalEarnings: Decimal!
+  ordersCompleted: Int!
+  bonusEarnings: Decimal!
+  deductions: Decimal!
+}
+
+type WeeklyEarning {
+  week: Int!
+  year: Int!
+  totalEarnings: Decimal!
+  ordersCompleted: Int!
+  dailyBreakdown: [DailyEarning!]!
+}
+
+type MonthlyEarning {
+  month: Int!
+  year: Int!
+  totalEarnings: Decimal!
+  ordersCompleted: Int!
+  bonusEarnings: Decimal!
+  deductions: Decimal!
+  weeklyBreakdown: [WeeklyEarning!]!
+}
+
+type EarningStats {
+  totalEarnings: Decimal!
+  todayEarnings: Decimal!
+  thisWeekEarnings: Decimal!
+  thisMonthEarnings: Decimal!
+  avgDailyEarnings: Decimal!
+  avgOrderEarnings: Decimal!
+  totalOrders: Int!
+  totalDeliveries: Int!
+  totalPayouts: Decimal!
+  pendingPayouts: Decimal!
+  lastPayoutDate: DateTime
+  nextPayoutDate: DateTime
+}
+
+type Payout {
+  id: ID!
+  userId: ID!
+  user: User
+  amount: Decimal!
+  payoutMethod: PayoutMethod!
+  payoutStatus: PayoutStatus!
+  transactionReference: String
+  bankAccount: String
+  dateRequested: DateTime!
+  dateProcessed: DateTime
+  notes: String
+  createdAt: DateTime!
+  updatedAt: DateTime!
+}
+
+type EarningBonus {
+  id: ID!
+  bonusName: String!
+  description: String
+  bonusAmount: Decimal!
+  bonusPercentage: Float
+  conditions: String
+  userId: ID!
+  user: User
+  earnedAt: DateTime!
+  status: BonusStatus!
+  expiresAt: DateTime
+}
+
+type WithdrawalRequest {
+  id: ID!
+  userId: ID!
+  user: User
+  amount: Decimal!
+  bankAccount: String
+  bankName: String
+  accountHolderName: String
+  ifscCode: String
+  status: WithdrawalStatus!
+  requestedAt: DateTime!
+  processedAt: DateTime
+  rejectionReason: String
+  transactionId: String
+  notes: String
+}
+
+type CommissionPolicy {
+  id: ID!
+  policyName: String!
+  commissionPercentage: Float!
+  minOrderAmount: Decimal
+  maxCommission: Decimal
+  applicableUserType: UserType!
+  description: String
+  isActive: Boolean!
+  effectiveFrom: DateTime!
+  effectiveTo: DateTime
+}
+
+type EarningTransaction {
+  id: ID!
+  userId: ID!
+  user: User
+  transactionType: TransactionType!
+  amount: Decimal!
+  balanceBefore: Decimal!
+  balanceAfter: Decimal!
+  description: String
+  referenceId: String
+  createdAt: DateTime!
+}
+
+type PaginatedEarnings {
+  earnings: [Earning!]!
+  total: Int!
+  page: Int!
+  pageSize: Int!
+  hasMore: Boolean!
+}
+
+type PaginatedPayouts {
+  payouts: [Payout!]!
+  total: Int!
+  page: Int!
+  pageSize: Int!
+  hasMore: Boolean!
+}
+
+type PaginatedBonuses {
+  bonuses: [EarningBonus!]!
+  total: Int!
+  page: Int!
+  pageSize: Int!
+  hasMore: Boolean!
+}
+
+# ============================================
+# ENUMS
+# ============================================
+
+enum EarningType {
+  ORDER_COMPLETION
+  DELIVERY_COMPLETION
+  BONUS
+  REFERRAL
+  PROMOTION
+  ADJUSTMENT
+  RESTAURANT_COMMISSION
+  PLATFORM_FEE
+}
+
+enum PayoutMethod {
+  BANK_TRANSFER
+  UPI
+  WALLET
+  CHEQUE
+  CASH
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+  REJECTED
+}
+
+enum BonusStatus {
+  EARNED
+  PENDING
+  CREDITED
+  EXPIRED
+  CANCELLED
+}
+
+enum WithdrawalStatus {
+  PENDING
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+  CANCELLED
+}
+
+enum TransactionType {
+  CREDIT
+  DEBIT
+  BONUS
+  PAYOUT
+  REFUND
+  ADJUSTMENT
+}
+
+enum UserType {
+  DELIVERY_PARTNER
+  RESTAURANT
+  ADMIN
+}
+
+# ============================================
+# EARNING QUERIES
+# ============================================
+
+extend type Query {
+  # Earnings Summary
+  getEarningStats: EarningStats!
+  getDailyEarning(date: DateTime!): DailyEarning
+  getWeeklyEarning(week: Int!, year: Int!): WeeklyEarning
+  getMonthlyEarning(month: Int!, year: Int!): MonthlyEarning
+  
+  # Earnings List
+  getEarnings(page: Int = 1, pageSize: Int = 20, startDate: DateTime, endDate: DateTime): PaginatedEarnings!
+  getEarningsByType(type: EarningType!, page: Int = 1, pageSize: Int = 20): PaginatedEarnings!
+  
+  # Payouts
+  getPayouts(page: Int = 1, pageSize: Int = 20, status: PayoutStatus): PaginatedPayouts!
+  getPayoutById(id: ID!): Payout
+  getPayoutStats: PayoutStats!
+  
+  # Bonuses
+  getBonuses(page: Int = 1, pageSize: Int = 20, status: BonusStatus): PaginatedBonuses!
+  getAvailableBonuses: [EarningBonus!]!
+  
+  # Withdrawal Requests
+  getWithdrawalRequests(page: Int = 1, pageSize: Int = 20): PaginatedWithdrawalRequests!
+  getWithdrawalRequestById(id: ID!): WithdrawalRequest
+  
+  # Transactions
+  getEarningTransactions(page: Int = 1, pageSize: Int = 20): [EarningTransaction!]!
+  
+  # Commission Policies
+  getCommissionPolicies: [CommissionPolicy!]!
+  getCommissionPolicy(id: ID!): CommissionPolicy
+  
+  # Earnings Breakdown
+  getEarningsBreakdown: EarningBreakdown!
+  getRestaurantEarnings(restaurantId: ID!, startDate: DateTime, endDate: DateTime): EarningStats!
+  getDeliveryPartnerEarnings(deliveryPartnerId: ID!, startDate: DateTime, endDate: DateTime): EarningStats!
+}
+
+type PayoutStats {
+  totalPayouts: Decimal!
+  totalEarnings: Decimal!
+  pendingPayouts: Decimal!
+  payoutCount: Int!
+  avgPayoutAmount: Decimal!
+}
+
+type PaginatedWithdrawalRequests {
+  withdrawals: [WithdrawalRequest!]!
+  total: Int!
+  page: Int!
+  pageSize: Int!
+  hasMore: Boolean!
+}
+
+# ============================================
+# EARNING MUTATIONS
+# ============================================
+
+extend type Mutation {
+  # Earning Management
+  recordEarning(input: RecordEarningInput!): Earning!
+  adjustEarning(earningId: ID!, adjustment: Decimal!, reason: String): Earning!
+  deleteEarning(earningId: ID!): SuccessResponse!
+  
+  # Payout Operations
+  requestPayout(input: RequestPayoutInput!): Payout!
+  approvePayout(payoutId: ID!, notes: String): Payout!
+  rejectPayout(payoutId: ID!, reason: String!): Payout!
+  processPayout(payoutId: ID!, transactionRef: String!): Payout!
+  cancelPayout(payoutId: ID!): SuccessResponse!
+  
+  # Bonus Management
+  awardBonus(input: AwardBonusInput!): EarningBonus!
+  claimBonus(bonusId: ID!): EarningBonus!
+  expireBonus(bonusId: ID!): SuccessResponse!
+  
+  # Withdrawal Requests
+  requestWithdrawal(input: WithdrawalRequestInput!): WithdrawalRequest!
+  approveWithdrawal(withdrawalId: ID!): WithdrawalRequest!
+  rejectWithdrawal(withdrawalId: ID!, reason: String!): WithdrawalRequest!
+  processWithdrawal(withdrawalId: ID!, transactionId: String!): WithdrawalRequest!
+  
+  # Commission Policies
+  createCommissionPolicy(input: CreateCommissionPolicyInput!): CommissionPolicy!
+  updateCommissionPolicy(id: ID!, input: UpdateCommissionPolicyInput!): CommissionPolicy!
+  activateCommissionPolicy(id: ID!): CommissionPolicy!
+  deactivateCommissionPolicy(id: ID!): CommissionPolicy!
+  deleteCommissionPolicy(id: ID!): SuccessResponse!
+  
+  # Bulk Operations
+  processBulkPayouts(payoutIds: [ID!]!): [Payout!]!
+  generatePayoutReport(startDate: DateTime!, endDate: DateTime!): String!
+  
+  # Manual Adjustments
+  creditWallet(userId: ID!, amount: Decimal!, reason: String!): EarningTransaction!
+  debitWallet(userId: ID!, amount: Decimal!, reason: String!): EarningTransaction!
+}
+
+# ============================================
+# INPUT TYPES
+# ============================================
+
+input RecordEarningInput {
+  earningType: EarningType!
+  amount: Decimal!
+  description: String
+  referenceId: ID
+  referenceType: String
+  userId: ID!
+}
+
+input RequestPayoutInput {
+  amount: Decimal!
+  payoutMethod: PayoutMethod!
+  bankAccount: String
+  bankName: String
+  accountHolderName: String
+  ifscCode: String
+  notes: String
+}
+
+input AwardBonusInput {
+  bonusName: String!
+  description: String
+  bonusAmount: Decimal
+  bonusPercentage: Float
+  conditions: String
+  userId: ID!
+  expiresAt: DateTime
+}
+
+input WithdrawalRequestInput {
+  amount: Decimal!
+  bankAccount: String!
+  bankName: String!
+  accountHolderName: String!
+  ifscCode: String!
+  notes: String
+}
+
+input CreateCommissionPolicyInput {
+  policyName: String!
+  commissionPercentage: Float!
+  minOrderAmount: Decimal
+  maxCommission: Decimal
+  applicableUserType: UserType!
+  description: String
+  effectiveFrom: DateTime!
+  effectiveTo: DateTime
+}
+
+input UpdateCommissionPolicyInput {
+  policyName: String
+  commissionPercentage: Float
+  minOrderAmount: Decimal
+  maxCommission: Decimal
+  description: String
+  effectiveFrom: DateTime
+  effectiveTo: DateTime
+}
+
+# ============================================
+# RESPONSE TYPES
+# ============================================
+
+type SuccessResponse {
+  success: Boolean!
+  message: String!
+}

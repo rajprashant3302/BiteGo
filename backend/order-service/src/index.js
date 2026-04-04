@@ -62,13 +62,14 @@ app.use("/api/orders", orderRoutes);
 
 app.get("/orders", async (req, res) => {
   try {
-    const orders = await prisma.orders.findMany();
+    const orders = await prisma.orders.findMany(); // Make sure your Prisma model is 'order' or 'orders' based on your schema
     res.json(orders);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: "Database error" });
   }
 });
+
 
 (async () => {
   try {
