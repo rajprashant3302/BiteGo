@@ -1,1 +1,0 @@
-# Listens to order-service events

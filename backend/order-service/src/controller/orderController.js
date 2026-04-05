@@ -5,11 +5,6 @@ exports.placeOrder = async (req, res) => {
   const { userId, items, addressId, useWallet, paymentMethod, restaurantId, couponCode } = req.body;
 
   try {
-<<<<<<< Updated upstream
-    // ── STEP 1: PRE-FETCH (OUTSIDE TRANSACTION) ──────────────────
-    // Moving these out reduces the time the transaction stays open.
-    const [dbItems, activeOffers, userProfile] = await Promise.all([
-=======
     if (!userId) throw new Error("User is required");
     if (!restaurantId) throw new Error("Restaurant is required");
     if (!addressId) throw new Error("Delivery address is required");
@@ -19,8 +14,9 @@ exports.placeOrder = async (req, res) => {
 
     const normalizedPaymentMethod = String(paymentMethod || "").toLowerCase();
 
-    const [dbItems, activeOffers, userProfile, restaurant] = await Promise.all([
->>>>>>> Stashed changes
+    // ── STEP 1: PRE-FETCH (OUTSIDE TRANSACTION) ──────────────────
+    // Moving these out reduces the time the transaction stays open.
+    const [dbItems, activeOffers, userProfile] = await Promise.all([
       prisma.menuItem.findMany({
         where: { ItemID: { in: items.map(i => i.id || i.ItemID) } }
       }),
@@ -74,34 +70,11 @@ exports.placeOrder = async (req, res) => {
       let totalAfterCoupon = subtotal;
       let appliedCouponId = null;
 
-<<<<<<< Updated upstream
-      // Coupon Validation inside transaction to prevent race conditions
       if (couponCode) {
-        const coupon = await tx.coupon.findUnique({
+        // Coupon validation stays inside the transaction to avoid stale state.
+        const coupon = await tx.coupon.findFirst({
           where: { CouponCode: couponCode, IsActive: true }
         });
-=======
-        if (couponCode) {
-          const coupon = await tx.coupon.findFirst({
-            where: { CouponCode: couponCode, IsActive: true },
-          });
-
-          if (
-            !coupon ||
-            (coupon.ExpiryDate && new Date(coupon.ExpiryDate) < new Date())
-          ) {
-            throw new Error("Invalid or expired coupon code");
-          }
-
-          const couponDiscount =
-            coupon.DiscountType === "Percentage"
-              ? totalAfterCoupon * (Number(coupon.DiscountValue) / 100)
-              : Number(coupon.DiscountValue);
-
-          totalAfterCoupon = Math.max(0, totalAfterCoupon - couponDiscount);
-          appliedCouponId = coupon.CouponID;
-        }
->>>>>>> Stashed changes
 
         if (!coupon || (coupon.ExpiryDate && new Date(coupon.ExpiryDate) < new Date())) {
           throw new Error("Invalid or expired coupon code");
@@ -173,7 +146,7 @@ exports.placeOrder = async (req, res) => {
             OrderID: order.OrderID,
             UserID: userId,
             TotalAmount: remainingAmount,
-            PaymentMethod: paymentMethod === "online" ? "UPI" : "COD",
+            PaymentMethod: normalizedPaymentMethod === "online" ? "UPI" : "COD",
             PaymentStatus: "Pending"
           }
         });
@@ -187,7 +160,7 @@ exports.placeOrder = async (req, res) => {
 
     // ── STEP 4: KAFKA (POST-TRANSACTION) ─────────────────────────
     // ── STEP 4: KAFKA (POST-TRANSACTION) ─────────────────────────
-    if (result.remainingAmount > 0 && paymentMethod === "online") {
+    if (result.remainingAmount > 0 && normalizedPaymentMethod === "online") {
       // Trigger payment flow
       await publishEvent("payment-initiated", {
         orderId: result.order.OrderID,
@@ -195,7 +168,7 @@ exports.placeOrder = async (req, res) => {
         userId: userId,
         paymentId: result.secondaryPayment.PaymentID
       });
-    } else if (result.remainingAmount === 0 || paymentMethod === "cod") {
+    } else if (result.remainingAmount === 0 || normalizedPaymentMethod === "cod") {
       // ✨ NEW: Order is instantly confirmed! Tell the delivery service!
       await publishEvent("order-confirmed", {
         orderId: result.order.OrderID,

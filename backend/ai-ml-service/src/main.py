@@ -1,24 +1,53 @@
-# FastAPI/Flask entry pointfrom fastapi import FastAPI
-from pydantic import BaseModel
-from typing import List
-from fastapi import FastAPI
-app = FastAPI()
+import logging
+import os
+import threading
+from contextlib import asynccontextmanager
 
-# In a real app, this would be a pre-trained model or a query to Redis/NeonDB
-MOCK_SUPPLEMENT_DATA = {
-    "burger_id": [{"id": "fries_1", "name": "Peri Peri Fries"}, {"id": "coke_1", "name": "Chilled Cola"}],
-    "pizza_id": [{"id": "bread_1", "name": "Garlic Breadstick"}, {"id": "dip_1", "name": "Cheesy Dip"}]
-}
+from fastapi import FastAPI
+
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+
+logging.basicConfig(
+    level=LOG_LEVEL,
+    format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
+    force=True,
+)
+
+# Kafka client emits transient rebalance/connectivity messages at INFO during
+# normal group joins. Keep library noise down so real consumer failures stand out.
+logging.getLogger("kafka").setLevel(logging.WARNING)
+
+logger = logging.getLogger("ai-ml-service")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("AI-ML service starting")
+
+    from src.kafka_client.consumer import start_consumer
+
+    thread = threading.Thread(
+        target=start_consumer,
+        daemon=True,
+        name="ai-ml-kafka-consumer",
+    )
+    thread.start()
+    app.state.consumer_thread = thread
+
+    logger.info("Kafka consumer thread started")
+
+    yield
+
+    logger.info("AI-ML service shutting down")
+
+
+app = FastAPI(lifespan=lifespan)
+
 
 @app.get("/")
 def root():
-    return {"message": "AI ML Service Running"}
+    return {"message": "AI-ML Service Running"}
 
-@app.get("/recommendations/supplements")
-async def get_supplements(item_ids: str):
-    ids = item_ids.split(",")
-    recommendations = []
-    for item_id in ids:
-        if item_id in MOCK_SUPPLEMENT_DATA:
-            recommendations.extend(MOCK_SUPPLEMENT_DATA[item_id])
-    return recommendations
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}

@@ -164,8 +164,11 @@ services:
       context: ./backend/ai-ml-service
       dockerfile: Dockerfile
     container_name: bitego-ai-ml-service
+    restart: unless-stopped
     ports:
       - "8000:8000"
+    environment:
+      AI_ML_EVENTS_INDEX: user_events
     env_file:
       - .env
     depends_on:
@@ -173,8 +176,16 @@ services:
         condition: service_started
       db:
         condition: service_started
+      elasticsearch:
+        condition: service_healthy
       kafka:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - bitego_network
 
@@ -190,6 +201,12 @@ services:
       - "9200:9200"
     volumes: # <--- This must be at the same level as 'ports'
       - ./docker-data/elasticsearch:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     depends_on:
       db:
         condition: service_started

@@ -1,7 +1,8 @@
-fastapi
+kafka-python
+elasticsearch>=8.0.0,<9.0.0
+FASTAPI
 uvicorn
 pydantic
+scikit-learn
 pandas
 numpy
-scikit-learn
-psycopg2-binary

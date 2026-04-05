@@ -17,7 +17,6 @@ es = Elasticsearch(
     ES_URL,
     headers={
         "Accept": "application/vnd.elasticsearch+json; compatible-with=8",
-        "Content-Type": "application/json"
     },
     retry_on_timeout=True,
     max_retries=5

@@ -55,11 +55,19 @@ es = Elasticsearch(
     [ES_HOST],
     headers={
         "Accept": "application/vnd.elasticsearch+json; compatible-with=8",
-        "Content-Type": "application/json",
     },
     retry_on_timeout=True,
     max_retries=5,
 )
+
+
+def is_es_connected() -> bool:
+    try:
+        # `ping()` uses HEAD /, which is unreliable in this deployment.
+        es.info()
+        return True
+    except Exception:
+        return False
 
 
 class ViewMenuBody(BaseModel):
@@ -155,7 +163,10 @@ async def search(q: str = Query(..., min_length=1)):
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "elasticsearch": "connected" if es.ping() else "disconnected"}
+    return {
+        "status": "ok",
+        "elasticsearch": "connected" if is_es_connected() else "disconnected",
+    }
 
 
 if __name__ == "__main__":
