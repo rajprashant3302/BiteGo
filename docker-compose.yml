@@ -226,7 +226,7 @@ services:
       db:
         condition: service_started
       elasticsearch:
-        condition: service_started
+        condition: service_healthy
       kafka:
         condition: service_healthy
     networks:

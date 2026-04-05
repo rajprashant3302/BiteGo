@@ -15,6 +15,8 @@ RUN pip install -r backend/search-service/requirements.txt
 RUN cd packages/database && \
     npx prisma@5.17.0 generate --generator py_client --schema=./prisma/schema.prisma
 
+RUN chmod +x backend/search-service/docker-entrypoint.sh
+
 EXPOSE 8001
 
-CMD ["python", "backend/search-service/main.py"]
+CMD ["./backend/search-service/docker-entrypoint.sh"]
