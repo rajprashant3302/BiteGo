@@ -5,3 +5,5 @@ prisma
 pydantic
 python-dotenv
 kafka-python
+sentence-transformers
+torch

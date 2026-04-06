@@ -17,6 +17,8 @@ services:
         condition: service_started
       order-service:
         condition: service_started
+      search-service:
+        condition: service_started
     restart: always
     networks:
       - bitego_network

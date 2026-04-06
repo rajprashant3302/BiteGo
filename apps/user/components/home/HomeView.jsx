@@ -6,6 +6,7 @@ import Button from '@/components/ui/Button';
 import Categories from './Categories';
 import DealsBanner from './DealsBanner';
 import RestaurantCard from './RestaurantCard';
+import CravingsShelf from './Cravingshelf';
 import { useCart } from '@/context/CartContext';
 import { useRouter } from "next/navigation";
 
@@ -176,6 +177,7 @@ export default function HomeView() {
       </section>
 
       <DealsBanner />
+      <CravingsShelf userId={user?.id || user?.email} />
 
       <section>
         <div className="flex items-center justify-between mb-8">
