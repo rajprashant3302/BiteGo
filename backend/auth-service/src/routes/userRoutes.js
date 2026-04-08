@@ -13,7 +13,10 @@ const {
     toggleRestaurantBlock,
     getOrders,
     getOrderDetails,
-    updateOrderStatus
+    updateOrderStatus,
+
+    getDashboardStats,
+    getDashboardSummary
 } = require('../controller/adminController');
 
 // ==========================================
@@ -45,6 +48,12 @@ router.patch('/restaurants/:restaurantId/toggle-status', authMiddleware, authori
 router.get('/orders/all', authMiddleware, authorizeRoles("SuperAdmin"), getOrders);
 router.get('/orders/:orderId', authMiddleware, authorizeRoles("SuperAdmin"), getOrderDetails);
 router.patch('/orders/:orderId/status', authMiddleware, authorizeRoles("SuperAdmin"), updateOrderStatus);
+
+// ==========================================
+// DASHBOARD STATS ROUTES (Admin)
+// ==========================================
+router.get('/dashboard/stats', authMiddleware, authorizeRoles("SuperAdmin"), getDashboardStats);
+router.get('/dashboard/summary', authMiddleware, authorizeRoles("SuperAdmin"), getDashboardSummary);
 
 module.exports = router;
 
