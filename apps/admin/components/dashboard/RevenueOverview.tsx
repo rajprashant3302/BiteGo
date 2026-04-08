@@ -1,10 +1,8 @@
-// src/components/RevenueOverview.tsx
 "use client";
-import { useState, useMemo } from "react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import { ArrowUpRight, BarChart2, LineChart as LineChartIcon, PieChart as PieChartIcon } from "lucide-react";
-import { CHART_DATA, MONTHS, YEARS, PIE_COLORS, ORDER_STATS, generateMonthData, fmt } from "../../lib/data";
 
-// 1. Define the shape of a single data point
 export interface ChartDataPoint {
   label: string;
   isLabelVisible: boolean;
@@ -13,21 +11,29 @@ export interface ChartDataPoint {
   revenue: number;
 }
 
-// 2. Define the exact strings allowed for 'period' to fix the indexing error
+export function fmt(n: number) {
+  if (n >= 100000) return "₹" + (n / 100000).toFixed(1) + "L";
+  if (n >= 1000)   return "₹" + (n / 1000).toFixed(0) + "K";
+  return "₹" + n;
+}
+
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const YEARS  = [2021,2022, 2023, 2024, 2025, 2026];
+const PIE_COLORS = ["#FF651D", "#3B82F6", "#10B981", "#A855F7", "#F59E0B", "#EC4899"];
+
 type Period = "week" | "month" | "year" | "custom";
 
-// 3. Define the props for the chart components
 interface ChartViewProps {
   data: ChartDataPoint[];
 }
 
 interface PieChartViewProps extends ChartViewProps {
-  period: Period; // Use the strict type here too
+  period: Period; 
 }
 
-// 4. Chart Components 
+// --- Chart Visual Components (Unchanged, they were perfect) ---
 function BarChartView({ data }: ChartViewProps) {
-  const max = Math.max(...data.map(d => d.value));
+  const max = Math.max(...data.map(d => d.value), 1);
   const isDense = data.length > 10;
   const isSuperDense = data.length > 50;
   const gapClass = isSuperDense ? "gap-0" : isDense ? "gap-[2px] md:gap-1" : "gap-2 md:gap-3";
@@ -36,7 +42,7 @@ function BarChartView({ data }: ChartViewProps) {
   return (
     <div className={`flex items-end ${gapClass} h-32 px-1`}>
       {data.map((d, i) => {
-        const h = Math.round((d.value / max) * 100);
+        const h = Math.max(Math.round((d.value / max) * 100), 2);
         return (
           <div key={i} className="flex-1 flex flex-col items-center gap-1 md:gap-2 group">
             <div className="relative w-full flex items-end justify-center" style={{ height: 100 }}>
@@ -59,7 +65,7 @@ function BarChartView({ data }: ChartViewProps) {
 function LineChartView({ data }: ChartViewProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
   const W = 500, H = 120, pad = 20;
-  const max = Math.max(...data.map(d => d.value)) || 1;
+  const max = Math.max(...data.map(d => d.value), 1);
   const isSuperDense = data.length > 50;
   const isDense = data.length > 10;
 
@@ -167,49 +173,93 @@ function PieChartView({ data, period }: PieChartViewProps) {
   );
 }
 
-// 5. Main Component
+// --- 5. Main Component ---
 export default function RevenueOverview() {
-  // Pass the strict `Period` type to useState here
-  const [period, setPeriod] = useState<Period>("week");
+  const [period, setPeriod] = useState<Period>("month");
   const [chartType, setChartType] = useState("bar");
-  const [customMonth, setCustomMonth] = useState(0); 
-  const [customYear, setCustomYear] = useState(2025);
+  const [customMonth, setCustomMonth] = useState(new Date().getMonth()); 
+  const [customYear, setCustomYear] = useState(new Date().getFullYear());
+  
+  // LIVE API STATE
+  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [orderCounts, setOrderCounts] = useState({ Delivered: 0, Preparing: 0, Placed: 0, Cancelled: 0 });
+  const [loading, setLoading] = useState(true);
+  const { data: session } = useSession();
 
-  const chartData = useMemo(() => {
-    // Because period is strictly typed, TypeScript knows it's safe to index CHART_DATA
-    if (period !== "custom") return CHART_DATA[period];
-    const daysInSelectedMonth = new Date(customYear, customMonth + 1, 0).getDate();
-    return generateMonthData(daysInSelectedMonth, MONTHS[customMonth]);
-  }, [period, customMonth, customYear]);
+  // --- FETCH REAL DATA WHEN PERIOD CHANGES ---
+  useEffect(() => {
+    const fetchStats = async () => {
+      const token = (session?.user as any)?.accessToken;
+      if (!token) return;
+
+      setLoading(true);
+      try {
+        const url = `${process.env.NEXT_PUBLIC_AUTH_SERVICE_URL}/api/users/dashboard/stats?period=${period}&month=${customMonth}&year=${customYear}`;
+        
+        const res = await fetch(url, { headers: { 'Authorization': `Bearer ${token}` } });
+        const json = await res.json();
+        
+        if (json.success) {
+          // The backend now formats the data perfectly, so we just set it directly!
+          setChartData(json.data.chartData);
+          setOrderCounts(json.data.orderCounts);
+        }
+      } catch (err) {
+        console.error("Failed to fetch dashboard stats", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, [period, customMonth, customYear, session]);
+
+  // --- DYNAMIC ORDER STATS ---
+  const liveOrderStats = [
+    { label: "Delivered", value: orderCounts.Delivered, dotColor: "bg-emerald-500" },
+    { label: "Preparing", value: orderCounts.Preparing, dotColor: "bg-blue-500" },
+    { label: "Placed", value: orderCounts.Placed, dotColor: "bg-orange-500" },
+    { label: "Cancelled", value: orderCounts.Cancelled, dotColor: "bg-red-500" },
+  ];
 
   const periodLabel = period === "week" ? "Daily breakdown (This week)" : period === "month" ? "Daily breakdown (This month)" : period === "year" ? "Month-wise breakdown (This year)" : `Daily breakdown for ${MONTHS[customMonth]} ${customYear}`;
 
   return (
-    <div className="xl:col-span-2 bg-white rounded-2xl p-6 border border-gray-100">
+    <div className="xl:col-span-2 bg-white rounded-2xl p-6 border border-gray-100 flex flex-col h-full">
       <div className="flex flex-wrap items-start justify-between gap-3 mb-5">
         <div>
           <h2 className="font-black text-gray-900 text-base">Revenue Overview</h2>
           <p className="text-xs text-gray-400 mt-0.5">{periodLabel}</p>
         </div>
         <div className="flex items-center gap-1.5 text-xs font-bold text-green-600 bg-green-50 px-3 py-1.5 rounded-xl">
-          <ArrowUpRight size={13}/> +12.4%
+          <ArrowUpRight size={13}/> Active
         </div>
       </div>
 
-      <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl mb-4 w-fit">
-        {(["week", "month", "year", "custom"] as Period[]).map((p) => (
-          <button 
-            key={p} 
-            onClick={() => setPeriod(p)} 
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${period === p ? "bg-[#FF651D] text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
-          >
-            {p}
-          </button>
-        ))}
+      <div className="flex flex-wrap items-center justify-between mb-4">
+        <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl w-fit">
+          {(["week", "month", "year", "custom"] as Period[]).map((p) => (
+            <button 
+              key={p} 
+              onClick={() => setPeriod(p)} 
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all capitalize ${period === p ? "bg-[#FF651D] text-white shadow-sm" : "text-gray-500 hover:text-gray-800"}`}
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl w-fit">
+          {[{ key: "bar", icon: <BarChart2 size={14}/>, label: "Bar"}, { key: "line", icon: <LineChartIcon size={14}/>, label: "Line"}, { key: "pie", icon: <PieChartIcon size={14}/>, label: "Pie"}].map((t) => (
+            <button key={t.key} onClick={() => setChartType(t.key)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === t.key ? "bg-white text-gray-900 shadow-sm border border-gray-100" : "text-gray-400 hover:text-gray-700"}`}>
+              {t.icon}{t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {period === "custom" && (
-        <div className="flex items-center gap-2 mb-4 flex-wrap">
+        <div className="flex items-center text-black gap-2 mb-4 flex-wrap">
           <select value={customMonth} onChange={(e) => setCustomMonth(Number(e.target.value))} className="text-xs font-semibold border border-gray-200 rounded-lg px-2.5 py-1.5 outline-none focus:border-orange-400 bg-white">
             {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
           </select>
@@ -219,29 +269,31 @@ export default function RevenueOverview() {
         </div>
       )}
 
-      <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-xl mb-5 w-fit">
-        {[{ key: "bar", icon: <BarChart2 size={14}/>, label: "Bar"}, { key: "line", icon: <LineChartIcon size={14}/>, label: "Line"}, { key: "pie", icon: <PieChartIcon size={14}/>, label: "Pie"}].map((t) => (
-          <button key={t.key} onClick={() => setChartType(t.key)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${chartType === t.key ? "bg-white text-gray-900 shadow-sm border border-gray-100" : "text-gray-400 hover:text-gray-700"}`}>
-            {t.icon}{t.label}
-          </button>
-        ))}
+      {/* Dynamic Chart Rendering */}
+      <div className="flex-1 min-h-[160px] flex flex-col justify-end mt-4">
+        {loading ? (
+          <div className="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium animate-pulse">Loading live data...</div>
+        ) : (
+          <>
+            {chartType === "bar"  && <BarChartView  data={chartData} />}
+            {chartType === "line" && <LineChartView data={chartData} />}
+            {chartType === "pie"  && <PieChartView  data={chartData} period={period} />}
+          </>
+        )}
       </div>
 
-      <div className="min-h-[130px]">
-        {chartType === "bar"  && <BarChartView  data={chartData} />}
-        {chartType === "line" && <LineChartView data={chartData} />}
-        {chartType === "pie"  && <PieChartView  data={chartData} period={period} />}
-      </div>
-
-      <div className="mt-6 pt-5 border-t border-gray-50 grid grid-cols-4 gap-3">
-        {ORDER_STATS.map((s) => (
+      {/* Live Status Dots */}
+      <div className="mt-auto pt-6 border-t border-gray-50 grid grid-cols-4 gap-3">
+        {liveOrderStats.map((s) => (
           <div key={s.label} className="text-center">
             <div className={`w-2 h-2 ${s.dotColor} rounded-full mx-auto mb-1.5`}/>
-            <p className="text-sm font-black text-gray-900">{s.value}</p>
-            <p className="text-[10px] text-gray-400">{s.label}</p>
+            <p className="text-sm md:text-lg font-black text-gray-900">{loading ? "-" : s.value}</p>
+            <p className="text-[10px] text-gray-400 uppercase tracking-wider font-bold mt-1">{s.label}</p>
           </div>
         ))}
       </div>
     </div>
   );
 }
+
+

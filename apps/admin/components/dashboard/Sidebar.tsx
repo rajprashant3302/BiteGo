@@ -2,7 +2,6 @@
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { LogOut, X, LayoutDashboard, Users, UtensilsCrossed, ShoppingBag, TrendingUp, UserPlus, Mail, Settings } from "lucide-react";
-import { NAV_ITEMS } from "@/lib/data";
 
 const ICONS = [LayoutDashboard, Users, UtensilsCrossed, ShoppingBag, TrendingUp, UserPlus, Mail, Settings];
 
@@ -14,6 +13,17 @@ interface SidebarProps {
   adminName: string;
   adminEmail: string;
 }
+
+const NAV_ITEMS = [
+  { label: "Dashboard",   href: "/"           },
+  { label: "All Users",   href: "/all-users" },
+  { label: "Restaurants", href: "/restaurants"},
+  { label: "Orders",      href: "/orders"    },
+  { label: "Analytics",   href: "/analytics" },
+  { label: "Invite",      href: "/invite"    },
+  { label: "Support",     href: "/chat"   },
+  { label: "Settings",    href: "/settings"  },
+];
 
 export default function Sidebar({ 
   sidebarOpen, setSidebarOpen, activeNav, setActiveNav, adminName, adminEmail 
@@ -41,15 +51,6 @@ export default function Sidebar({
       `}>
         {/* Logo Section */}
         <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-[#FF651D] rounded-lg flex items-center justify-center">
-              <span className="text-white font-black text-sm">B</span>
-            </div>
-            <div>
-              <p className="font-black text-gray-900 text-sm leading-none">BiteGo</p>
-              <p className="text-[10px] text-orange-500 font-bold uppercase tracking-widest">Admin</p>
-            </div>
-          </div>
           <button className="md:hidden text-gray-400 p-1" onClick={() => setSidebarOpen(false)}>
             <X size={20}/>
           </button>
@@ -81,7 +82,7 @@ export default function Sidebar({
         </nav>
 
         {/* Profile / Logout Section (Stays at bottom) */}
-        <div className="px-3 py-4 border-t border-gray-100 shrink-0">
+        {/* <div className="px-3 py-4 border-t border-gray-100 shrink-0">
           <div className="flex items-center gap-3 px-3 py-2 rounded-xl hover:bg-gray-50 cursor-pointer group">
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center text-white font-black text-xs shrink-0">
               {adminName.charAt(0).toUpperCase()}
@@ -91,14 +92,14 @@ export default function Sidebar({
               <p className="text-xs text-gray-400 truncate">{adminEmail}</p>
             </div>
             <button 
-              onClick={() => signOut()} 
+              onClick={() => signOut({ callbackUrl: '/login' })}
               className="text-gray-300 group-hover:text-red-500 transition-colors p-1" 
               title="Logout"
             >
               <LogOut size={16}/>
             </button>
           </div>
-        </div>
+        </div> */}
       </aside>
     </>
   );
