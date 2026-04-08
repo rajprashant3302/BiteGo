@@ -1,0 +1,100 @@
+# ============================================
+# COUPON QUERIES
+# ============================================
+
+extend type Query {
+  # Coupon Retrieval
+  getCouponById(id: ID!): Coupon
+  getCouponByCode(code: String!): Coupon
+  getActiveCoupons: [Coupon!]!
+  
+  # User Coupon Usage
+  getUserCouponUsages(userId: ID!): [CouponUsage!]!
+  validateCoupon(code: String!, orderId: ID!): CouponValidation!
+}
+
+# ============================================
+# COUPON MUTATIONS
+# ============================================
+
+extend type Mutation {
+  # Coupon Management (Admin/System)
+  createCoupon(input: CreateCouponInput!): Coupon!
+  updateCoupon(couponId: ID!, input: UpdateCouponInput!): Coupon!
+  deactivateCoupon(couponId: ID!): SuccessResponse!
+  
+  # Coupon Usage
+  applyCoupon(userId: ID!, couponCode: String!, orderId: ID!): CouponUsage!
+  removeCoupon(usageId: ID!): SuccessResponse!
+}
+
+# ============================================
+# SUPPORT TICKET QUERIES
+# ============================================
+
+extend type Query {
+  # Ticket Retrieval
+  getTicketById(id: ID!): SupportTicket
+  getUserTickets(userId: ID!, page: Int = 1, pageSize: Int = 20): [SupportTicket!]!
+  getTicketsByOrder(orderId: ID!): [SupportTicket!]!
+  
+  # Support Stats
+  getSupportStats: SupportStats!
+}
+
+# ============================================
+# SUPPORT TICKET MUTATIONS
+# ============================================
+
+extend type Mutation {
+  # Ticket Management
+  createSupportTicket(userId: ID!, input: CreateSupportTicketInput!): SupportTicket!
+  updateTicketStatus(ticketId: ID!, status: TicketStatus!): SupportTicket!
+  closeTicket(ticketId: ID!, resolution: String): SupportTicket!
+  
+  # Ticket Resolution
+  assignTicketToAgent(ticketId: ID!, agentId: ID!): SupportTicket!
+}
+
+# ============================================
+# INPUT TYPES
+# ============================================
+
+input CreateCouponInput {
+  couponCode: String!
+  discountType: DiscountType!
+  discountValue: Decimal!
+  expiryDate: DateTime!
+  minOrderValue: Decimal
+}
+
+input UpdateCouponInput {
+  discountValue: Decimal
+  expiryDate: DateTime
+  isActive: Boolean
+}
+
+input CreateSupportTicketInput {
+  issueType: String!
+  description: String!
+  orderId: ID
+}
+
+# ============================================
+# RESPONSE TYPES
+# ============================================
+
+type CouponValidation {
+  isValid: Boolean!
+  coupon: Coupon
+  message: String
+  applicableDiscount: Decimal
+}
+
+type SupportStats {
+  totalTickets: Int!
+  openTickets: Int!
+  inProgressTickets: Int!
+  resolvedTickets: Int!
+  avgResolutionTime: Int!
+}

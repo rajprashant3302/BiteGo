@@ -1,0 +1,122 @@
+# ============================================
+# RESTAURANT QUERIES
+# ============================================
+
+extend type Query {
+  # Restaurant Discovery
+  getRestaurants(
+    page: Int = 1
+    pageSize: Int = 20
+    latitude: Decimal
+    longitude: Decimal
+    radius: Decimal = 5
+    searchQuery: String
+    rating: Int
+  ): PaginatedRestaurants!
+  
+  getRestaurantById(id: ID!): Restaurant
+  getRestaurantsByOwner(ownerId: ID!): [Restaurant!]!
+  
+  # Menu Operations
+  getMenuByRestaurant(restaurantId: ID!, onlyAvailable: Boolean = true): [MenuItem!]!
+  getMenuItemById(id: ID!): MenuItem
+  searchMenuItems(restaurantId: ID!, query: String!): [MenuItem!]!
+  
+  # Offers & Promotions
+  getRestaurantOffers(restaurantId: ID!): [Offer!]!
+  getActiveOffers(restaurantId: ID!): [Offer!]!
+}
+
+# ============================================
+# RESTAURANT MUTATIONS
+# ============================================
+
+extend type Mutation {
+  # Restaurant Management
+  createRestaurant(ownerId: ID!, input: CreateRestaurantInput!): Restaurant!
+  updateRestaurant(restaurantId: ID!, input: UpdateRestaurantInput!): Restaurant!
+  toggleRestaurantStatus(restaurantId: ID!, isActive: Boolean!): Restaurant!
+  toggleRestaurantHours(restaurantId: ID!, isOpen: Boolean!): Restaurant!
+  
+  # Menu Item Management
+  addMenuItem(restaurantId: ID!, input: AddMenuItemInput!): MenuItem!
+  updateMenuItem(itemId: ID!, input: UpdateMenuItemInput!): MenuItem!
+  deleteMenuItem(itemId: ID!): SuccessResponse!
+  toggleMenuItemAvailability(itemId: ID!, isAvailable: Boolean!): MenuItem!
+  updateMenuItemQuantity(itemId: ID!, quantity: Int!): MenuItem!
+  
+  # Bulk Menu Operations
+  addMultipleMenuItems(restaurantId: ID!, items: [AddMenuItemInput!]!): [MenuItem!]!
+  updateMenuItemPrices(restaurantId: ID!, updates: [PriceUpdateInput!]!): [MenuItem!]!
+  
+  # Offers & Promotions
+  createOffer(restaurantId: ID!, input: CreateOfferInput!): Offer!
+  updateOffer(offerId: ID!, input: UpdateOfferInput!): Offer!
+  deactivateOffer(offerId: ID!): SuccessResponse!
+}
+
+# ============================================
+# INPUT TYPES
+# ============================================
+
+input CreateRestaurantInput {
+  name: String!
+  categoryName: String!
+  latitude: Decimal!
+  longitude: Decimal!
+  zoneId: ID
+  description: String
+}
+
+input UpdateRestaurantInput {
+  name: String
+  categoryName: String
+  latitude: Decimal
+  longitude: Decimal
+  rating: Decimal
+}
+
+input AddMenuItemInput {
+  itemName: String!
+  description: String
+  itemImageUrl: String
+  price: Decimal!
+  isVeg: Boolean
+  availableQuantity: Int!
+}
+
+input UpdateMenuItemInput {
+  itemName: String
+  description: String
+  itemImageUrl: String
+  price: Decimal
+  isVeg: Boolean
+  availableQuantity: Int
+}
+
+input PriceUpdateInput {
+  itemId: ID!
+  newPrice: Decimal!
+}
+
+input CreateOfferInput {
+  title: String!
+  description: String
+  discountType: DiscountType!
+  discountValue: Decimal!
+  minOrderValue: Decimal
+  maxDiscount: Decimal
+  startTime: DateTime!
+  endTime: DateTime!
+  applicableItemIds: [ID!]
+}
+
+input UpdateOfferInput {
+  title: String
+  description: String
+  discountValue: Decimal
+  minOrderValue: Decimal
+  maxDiscount: Decimal
+  startTime: DateTime
+  endTime: DateTime
+}
