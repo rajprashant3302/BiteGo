@@ -5,9 +5,7 @@ const authController = require("../controller/authController");
 const profile = require("../controller/completeProfile");
 const reset = require("../controller/resetPassword");
 const addressController = require("../controller/addressController");
-const vendorController = require("../controller/vendorController");
-const inviteController = require("../controller/invitationController");
-const { authMiddleware, authorizeRoles } = require("../middleware/authMiddleware");
+const vendorController = require("../controller/vendorController")
 
 router.post("/register", authController.initiateRegistration);
 router.get("/verify-email", authController.verifyEmail);
@@ -26,15 +24,6 @@ router.get("/addresses/:userId", addressController.getAddresses);
 router.post("/addresses/add", addressController.addAddress);
 router.put("/addresses/:addressId", addressController.updateAddress);
 router.delete("/addresses/:addressId", addressController.deleteAddress);
-
-router.post(
-  '/invite/send', 
-  authMiddleware, 
-  authorizeRoles("SuperAdmin", "Ops"), 
-  inviteController.sendInvite
-); 
-router.get('/invite/verify', inviteController.verifyInviteToken);
-router.post('/invite/accept', inviteController.acceptInvite);
 
 
 router.get("/partner/business-details/:userId", vendorController.getBusinessDetails);

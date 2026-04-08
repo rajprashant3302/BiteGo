@@ -44,6 +44,7 @@ enum payment_status_enum {
 enum order_status_enum {
   Placed
   Preparing
+  Prepared
   PickedUp
   Delivered
   Cancelled

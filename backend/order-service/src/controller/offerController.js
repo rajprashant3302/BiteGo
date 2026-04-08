@@ -1,6 +1,6 @@
 // controllers/offer.controller.js
 const { prisma } = require("database"); 
-const { redisClient } = require("redis-client"); 
+const { redisClient } = require("redis-client"); // ✅ Added redisClient
 
 // Create a new Offer
 exports.createOffer = async (req, res) => {

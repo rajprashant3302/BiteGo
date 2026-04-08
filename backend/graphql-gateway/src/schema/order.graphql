@@ -1,0 +1,82 @@
+# ============================================
+# ORDER QUERIES
+# ============================================
+
+extend type Query {
+  # Order Retrieval
+  getOrderById(id: ID!): Order
+  getOrdersByUser(userId: ID!, page: Int = 1, pageSize: Int = 20): PaginatedOrders!
+  getOrdersByRestaurant(restaurantId: ID!, page: Int = 1, pageSize: Int = 20): PaginatedOrders!
+  getOrdersByDeliveryPartner(deliveryPartnerId: ID!, page: Int = 1, pageSize: Int = 20): PaginatedOrders!
+  
+  # Order Statistics
+  getOrderStats(startDate: DateTime, endDate: DateTime): OrderStats!
+  getRestaurantOrderStats(restaurantId: ID!, startDate: DateTime, endDate: DateTime): OrderStats!
+}
+
+# ============================================
+# ORDER MUTATIONS
+# ============================================
+
+extend type Mutation {
+  # Order Placement
+  placeOrder(userId: ID!, input: PlaceOrderInput!): Order!
+  placeOrderWithCoupon(userId: ID!, input: PlaceOrderWithCouponInput!): Order!
+  
+  # Order Management
+  updateOrderStatus(orderId: ID!, status: OrderStatus!): Order!
+  cancelOrder(orderId: ID!, reason: String): Order!
+  
+  # Order Items
+  addOrderItem(orderId: ID!, input: AddOrderItemInput!): OrderItem!
+  removeOrderItem(orderItemId: ID!): SuccessResponse!
+  
+  # Invoice
+  generateInvoice(orderId: ID!): Invoice!
+  
+  # Delivery Assignment
+  assignDeliveryPartner(orderId: ID!, deliveryPartnerId: ID!): Order!
+  reassignDeliveryPartner(orderId: ID!, newDeliveryPartnerId: ID!): Order!
+}
+
+# ============================================
+# INPUT TYPES
+# ============================================
+
+input PlaceOrderInput {
+  restaurantId: ID!
+  items: [OrderItemInput!]!
+  deliveryAddressId: ID!
+  notes: String
+}
+
+input OrderItemInput {
+  itemId: ID!
+  quantity: Int!
+}
+
+input PlaceOrderWithCouponInput {
+  restaurantId: ID!
+  items: [OrderItemInput!]!
+  deliveryAddressId: ID!
+  couponCode: String
+  notes: String
+}
+
+input AddOrderItemInput {
+  itemId: ID!
+  quantity: Int!
+}
+
+# ============================================
+# RESPONSE TYPES
+# ============================================
+
+type OrderStats {
+  totalOrders: Int!
+  totalRevenue: Decimal!
+  avgOrderValue: Decimal!
+  completedOrders: Int!
+  cancelledOrders: Int!
+  activeOrders: Int!
+}
