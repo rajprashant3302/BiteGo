@@ -3,19 +3,29 @@
 import { motion } from 'framer-motion';
 import { Minus, Plus, Trash2 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
+import { resolveImageUrl, withFallbackSrc } from '@/lib/image';
 
 export default function CartItem({ item }) {
   // Using the context actions we aligned with ItemID
   const { addToCart, removeFromCart ,removeItemCompletely} = useCart();
+  const ORDER_SERVICE_BASE =
+    process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+  const fallbackImage = "/placeholder-food.svg";
+  const imageUrl = resolveImageUrl(item?.ItemImageURL, {
+    fallback: fallbackImage,
+    baseUrl: ORDER_SERVICE_BASE,
+  });
+  const handleImageError = withFallbackSrc(fallbackImage);
 
   if (!item) return null;
 
   return (
     <motion.div layout className="flex gap-4 group">
       <img
-        src={item.ItemImageURL || "/placeholder-food.png"}
+        src={imageUrl}
         alt={item.ItemName}
         className="w-24 h-24 rounded-2xl object-cover shadow-sm ring-1 ring-gray-100"
+        onError={handleImageError}
       />
       <div className="flex-1 flex flex-col justify-between py-1">
         <div>

@@ -9,6 +9,7 @@ import {
 import { Loader2, ShoppingCart } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { useCart } from '@/context/CartContext';
+import { resolveImageUrl, withFallbackSrc } from '@/lib/image';
 
 export default function RestaurantDetailsPage() {
   const { restaurantId } = useParams();
@@ -136,6 +137,14 @@ function MenuCard({ item }) {
   const { addToCart, removeFromCart, cartItems, user } = useCart();
   const SEARCH_SERVICE_BASE =
   process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "/search-api";
+  const ORDER_SERVICE_BASE =
+    process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+  const fallbackImage = "/placeholder-food.svg";
+  const imageUrl = resolveImageUrl(item?.ItemImageURL, {
+    fallback: fallbackImage,
+    baseUrl: ORDER_SERVICE_BASE,
+  });
+  const handleImageError = withFallbackSrc(fallbackImage);
   const handleAddToCart = async () => {
     console.log("🔥 ADD TO CART CLICKED", item);
   
@@ -180,7 +189,11 @@ function MenuCard({ item }) {
     <div className={`bg-white rounded-[2rem] p-5 border-2 border-slate-50 flex items-center gap-6 transition-all duration-300 relative ${isOutOfStock ? 'opacity-75 grayscale-[0.5]' : 'hover:border-orange-500/20 hover:shadow-2xl'}`}>
       
       <div className="relative w-32 h-32 md:w-36 md:h-36 flex-shrink-0 overflow-hidden rounded-[1.5rem] bg-slate-100 shadow-inner">
-        <img src={item.ItemImageURL || "/placeholder-food.png"} className="w-full h-full object-cover" />
+        <img
+          src={imageUrl}
+          className="w-full h-full object-cover"
+          onError={handleImageError}
+        />
         
         {/* --- DYNAMIC OFFER TAG --- */}
         {hasOffer && !isOutOfStock && discountLabel && (

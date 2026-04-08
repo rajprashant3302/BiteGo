@@ -35,6 +35,24 @@ export default function Navbar() {
     status
   } = useCart();
 
+  const trackUserSearch = async (item) => {
+    try {
+      await fetch(`${SEARCH_API_BASE}/api/user-search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "USER_SEARCH",
+          query: searchQuery,
+          userId: user?.id || user?.email || "anonymous-user",
+          restaurantId: item.type === "RESTAURANT" ? item.id : null,
+          itemId: item.type !== "RESTAURANT" ? item.id : null,
+        }),
+      });
+    } catch (err) {
+      console.error("User search tracking failed:", err);
+    }
+  };
+
   // 1. SEARCH LOGIC: Fetch from Elasticsearch Service via FastAPI
   useEffect(() => {
     const fetchResults = async () => {
@@ -136,8 +154,9 @@ export default function Navbar() {
                       results.map((item) => (
                         <button
                           key={item.id}
-                          onClick={() => {
+                          onClick={async () => {
                             setShowDropdown(false);
+                            await trackUserSearch(item);
                             const path = item.type === 'RESTAURANT' ? `/restaurants/${item.id}` : `/item/${item.id}`;
                             router.push(path);
                           }}

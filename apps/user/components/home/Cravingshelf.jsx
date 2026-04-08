@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Sparkles } from 'lucide-react';
-import RecommendationCard from './Recommendationcard';
+import RecommendationCard from './RecommendationCard';
 
 const AI_SERVICE_BASE =
   process.env.NEXT_PUBLIC_AI_SERVICE_URL || "/ai-api";

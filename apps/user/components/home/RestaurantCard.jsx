@@ -6,6 +6,7 @@ import { Heart, Star, Timer, Plus, Tag } from 'lucide-react';
 import { cn } from '@/components/ui/cn';
 import Button from '@/components/ui/Button';
 import { useCart } from '@/context/CartContext';
+import { resolveImageUrl, withFallbackSrc } from '@/lib/image';
 
 const SEARCH_SERVICE_BASE =
   process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "/search-api";
@@ -30,6 +31,14 @@ export default function RestaurantCard({ restaurant, isFavorite, onToggleFavorit
   }, [items.length]);
 
   const activeItem = items[index];
+  const ORDER_SERVICE_BASE =
+    process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+  const fallbackImage = "/placeholder-food.svg";
+  const activeImageUrl = resolveImageUrl(activeItem?.ItemImageURL, {
+    fallback: fallbackImage,
+    baseUrl: ORDER_SERVICE_BASE,
+  });
+  const handleImageError = withFallbackSrc(fallbackImage);
 
   const handleClick = async () => {
     await fetch(`${SEARCH_SERVICE_BASE}/api/view-menu`, {
@@ -68,12 +77,13 @@ export default function RestaurantCard({ restaurant, isFavorite, onToggleFavorit
         <AnimatePresence mode="wait">
           <motion.img
             key={activeItem?.ItemID || 'default'}
-            src={activeItem?.ItemImageURL || "/placeholder.png"}
+            src={activeImageUrl}
             initial={{ opacity: 0, scale: 1.1 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
             transition={{ duration: 0.8 }}
             className="w-full h-full object-cover"
+            onError={handleImageError}
           />
         </AnimatePresence>
         

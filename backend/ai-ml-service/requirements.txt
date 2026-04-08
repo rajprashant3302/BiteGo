@@ -1,9 +1,16 @@
-kafka-python
-elasticsearch>=8.0.0,<9.0.0
-FASTAPI
-uvicorn
-pydantic
-scikit-learn
-pandas
+# --- Database & Scheduling ---
+prisma
+apscheduler
+python-dotenv
+
+# --- Math & AI ---
 numpy
+sentence-transformers
+torch --index-url https://download.pytorch.org/whl/cpu 
+elasticsearch>=8.0.0,<9.0.0
+
+# --- Web & Infrastructure ---
+fastapi
+uvicorn
 redis
+kafka-python

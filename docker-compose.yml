@@ -162,34 +162,37 @@ services:
       - bitego_network
 
   ai-ml-service:
-    build:
-      context: ./backend/ai-ml-service
-      dockerfile: Dockerfile
-    container_name: bitego-ai-ml-service
-    restart: unless-stopped
-    ports:
-      - "8000:8000"
-    environment:
-      AI_ML_EVENTS_INDEX: user_events
-    env_file:
-      - .env
-    depends_on:
-      redis:
-        condition: service_started
-      db:
-        condition: service_started
-      elasticsearch:
-        condition: service_healthy
-      kafka:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health >/dev/null || exit 1"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 20s
-    networks:
-      - bitego_network
+      build:
+        context: .
+        dockerfile: backend/ai-ml-service/Dockerfile
+      container_name: bitego-ai-ml-service
+      restart: unless-stopped
+      ports:
+        - "8000:8000"
+      environment:
+        - AI_ML_EVENTS_INDEX=user_events
+        - ES_HOST=http://elasticsearch:9200
+        - REDIS_URL=redis://redis:6379
+        - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      env_file:
+        - .env
+      depends_on:
+        db:
+          condition: service_started
+        redis:
+          condition: service_started
+        elasticsearch:
+          condition: service_healthy
+        kafka:
+          condition: service_healthy
+      healthcheck:
+        test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+        interval: 20s
+        timeout: 10s
+        retries: 5
+        start_period: 40s
+      networks:
+        - bitego_network
 
   # ----------------- SEARCH & ELASTIC -----------------
   elasticsearch:

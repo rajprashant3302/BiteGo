@@ -3,17 +3,21 @@
 import { motion } from 'framer-motion';
 import { Star, Timer, Plus, Sparkles } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import { resolveImageUrl, withFallbackSrc } from '@/lib/image';
 
 export default function RecommendationCard({ item }) {
   // Score-based badge logic
   const score = typeof item?.score === 'number' ? item.score : null;
   const isHighMatch = score !== null && score > 1.1;
   const rating = score !== null ? (score * 4).toFixed(1) : "4.5";
-  const imageUrl =
-    item?.imageUrl ||
-    item?.ItemImageURL ||
-    item?.ImageURL ||
-    "/placeholder.png";
+  const ORDER_SERVICE_BASE =
+    process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+  const fallbackImage = "/placeholder-food.svg";
+  const imageUrl = resolveImageUrl(
+    item?.imageUrl || item?.ItemImageURL || item?.ImageURL,
+    { fallback: fallbackImage, baseUrl: ORDER_SERVICE_BASE }
+  );
+  const handleImageError = withFallbackSrc(fallbackImage);
   const itemName = item?.name || item?.ItemName || "Recommended Item";
   const itemCategory = item?.category || item?.CategoryName || "Food";
   const itemType = item?.type || item?.Type || "MENU_ITEM";
@@ -29,6 +33,7 @@ export default function RecommendationCard({ item }) {
           src={imageUrl}
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
           alt={itemName}
+          onError={handleImageError}
         />
         
         {isHighMatch && (

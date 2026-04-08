@@ -94,3 +94,49 @@ def add_to_cart_payload(
         "userId": user_id,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
+
+
+def user_search_payload(
+    event: str,
+    query: str,
+    user_id: Any = "test-user",
+    restaurant_id: Any | None = None,
+    item_id: Any | None = None,
+) -> dict[str, Any]:
+    payload = {
+        "event": event,
+        "query": query,
+        "userId": user_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    if restaurant_id is not None:
+        payload["restaurantId"] = restaurant_id
+    if item_id is not None:
+        payload["itemId"] = item_id
+
+    return payload
+
+
+def order_placed_payload(
+    event: str,
+    order_id: Any,
+    restaurant_id: Any,
+    user_id: Any = "test-user",
+    total_amount: float | None = None,
+    item_count: int | None = None,
+) -> dict[str, Any]:
+    payload = {
+        "event": event,
+        "orderId": order_id,
+        "restaurantId": restaurant_id,
+        "userId": user_id,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+
+    if total_amount is not None:
+        payload["totalAmount"] = total_amount
+    if item_count is not None:
+        payload["itemCount"] = item_count
+
+    return payload

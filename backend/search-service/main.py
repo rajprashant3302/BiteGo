@@ -13,7 +13,9 @@ from kafka_producer import (
     add_to_cart_payload,
     connect_producer,
     disconnect_producer,
+    order_placed_payload,
     send_event,
+    user_search_payload,
     view_menu_payload,
 )
 
@@ -84,6 +86,23 @@ class AddToCartBody(BaseModel):
     userId: int | str | None = None
 
 
+class UserSearchBody(BaseModel):
+    event: str
+    query: str
+    userId: int | str | None = None
+    restaurantId: int | str | None = None
+    itemId: int | str | None = None
+
+
+class OrderPlacedBody(BaseModel):
+    event: str
+    orderId: int | str
+    restaurantId: int | str
+    userId: int | str | None = None
+    totalAmount: float | None = None
+    itemCount: int | None = None
+
+
 @app.post("/api/view-menu")
 async def view_menu(body: ViewMenuBody):
     print("📩 API HIT: /api/view-menu")  # ✅ DEBUG 3
@@ -123,6 +142,51 @@ async def add_to_cart(body: AddToCartBody):
         await send_event("user-events", payload)
 
         return {"message": "Add-to-cart event sent to Kafka"}
+    except Exception as e:
+        print("❌ Kafka error:", str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Kafka error", "detail": str(e)},
+        )
+
+
+@app.post("/api/user-search")
+async def user_search(body: UserSearchBody):
+    try:
+        payload = user_search_payload(
+            body.event,
+            body.query,
+            body.userId or "anonymous-user",
+            body.restaurantId,
+            body.itemId,
+        )
+
+        await send_event("user-events", payload)
+
+        return {"message": "User-search event sent to Kafka"}
+    except Exception as e:
+        print("❌ Kafka error:", str(e))
+        return JSONResponse(
+            status_code=500,
+            content={"error": "Kafka error", "detail": str(e)},
+        )
+
+
+@app.post("/api/order-placed")
+async def order_placed(body: OrderPlacedBody):
+    try:
+        payload = order_placed_payload(
+            body.event,
+            body.orderId,
+            body.restaurantId,
+            body.userId or "anonymous-user",
+            body.totalAmount,
+            body.itemCount,
+        )
+
+        await send_event("user-events", payload)
+
+        return {"message": "Order-placed event sent to Kafka"}
     except Exception as e:
         print("❌ Kafka error:", str(e))
         return JSONResponse(

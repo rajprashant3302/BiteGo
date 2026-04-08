@@ -53,6 +53,26 @@ export default function CartPage() {
   // Safety check for wallet balance display
   const walletBalance = parseFloat(user?.walletBalance || 0);
     const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+    const SEARCH_SERVICE_BASE = process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "/search-api";
+
+    const trackOrderPlaced = async (orderId) => {
+      try {
+        await fetch(`${SEARCH_SERVICE_BASE}/api/order-placed`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            event: "ORDER_PLACED",
+            orderId,
+            restaurantId: cartItems[0]?.RestaurantID,
+            userId: user?.id || user?.email || "anonymous-user",
+            totalAmount: cartTotal,
+            itemCount: cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0),
+          }),
+        });
+      } catch (err) {
+        console.error("Order placed tracking failed:", err);
+      }
+    };
 
     const handleRazorpayPayment = async (orderResult) => {
     const isScriptLoaded = await loadRazorpayScript();
@@ -176,6 +196,7 @@ export default function CartPage() {
     const result = await response.json();
 
     if (!response.ok) throw new Error(result.error);
+    await trackOrderPlaced(result.orderId);
 
     // 2. Handle Payment Logic
     if (paymentMode === 'cod' || result.remainingAmount === 0) {

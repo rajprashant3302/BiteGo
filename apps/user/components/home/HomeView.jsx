@@ -177,7 +177,7 @@ export default function HomeView() {
       </section>
 
       <DealsBanner />
-      <CravingsShelf userId={user?.id || user?.email} />
+      <CravingsShelf userId={user?.id} />
 
       <section>
         <div className="flex items-center justify-between mb-8">

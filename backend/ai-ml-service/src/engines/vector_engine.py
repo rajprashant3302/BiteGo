@@ -15,8 +15,10 @@ ACTION_WEIGHTS = {
     "view": 1.0,
     "view_menu": 1.2,      # Slightly higher weight for intentional menu browsing
     "search_click": 1.5,
+    "user_search": 1.5,
     "add_to_cart": 3.0,
-    "purchase": 5.0
+    "purchase": 5.0,
+    "order_placed": 5.0,
 }
 
 LAMBDA_DECAY = 0.023  # Influence halves roughly every 30 mins
@@ -29,9 +31,20 @@ def update_user_short_term_vector(es: Elasticsearch, user_id: str, index_name: s
         print(f"\n🔍 [DEBUG] Starting Intent Update for User: {user_id}")
         
         # 1. Fetch last 10 activities from user_events
+        query = {
+            "bool": {
+                "must": [
+                    {"term": {"userId": user_id}}
+                ],
+                "filter": [
+                    {"range": {"timestamp": {"gte": "now-12h"}}}
+                ]
+            }
+        }
+
         res = es.search(
             index=index_name,
-            query={"term": {"userId": user_id}},
+            query=query,
             sort=[{"timestamp": "desc"}],
             size=10
         )
