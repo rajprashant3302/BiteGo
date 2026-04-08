@@ -6,7 +6,8 @@ import { Clock } from "lucide-react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import Header from "@/components/dashboard/Header";
 import RevenueOverview from "@/components/dashboard/RevenueOverview";
-import { StatCards, TopRestaurants, RecentOrders, QuickActions, PlatformHealth } from "@/components/dashboard/DashboardWidgets";
+import RecentOrders from "@/components/dashboard/RecentOrders";
+import { StatCards, TopRestaurants, QuickActions, PlatformHealth } from "@/components/dashboard/DashboardWidgets";
 
 export default function AdminDashboard() {
   const { data: session } = useSession();
@@ -55,20 +56,33 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {/* Widgets Grid */}
+          {/* Top Stat Cards */}
           <StatCards />
 
+          {/* Middle Row: Revenue & Top Restaurants */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-            <RevenueOverview />
-            <TopRestaurants />
+            <div className="xl:col-span-2">
+              <RevenueOverview />
+            </div>
+            <div>
+              <TopRestaurants />
+            </div>
           </div>
 
+          {/* Bottom Row: Recent Orders & Quick Actions */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-            <RecentOrders />
-            <div className="space-y-3">
+            
+            {/* Left side takes up 2 out of 3 columns on large screens */}
+            <div className="xl:col-span-2">
+              <RecentOrders />
+            </div>
+
+            {/* Right side takes up the remaining 1 column */}
+            <div className="space-y-4">
               <QuickActions />
               <PlatformHealth />
             </div>
+            
           </div>
         </main>
       </div>
