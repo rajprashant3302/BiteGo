@@ -282,3 +282,4 @@ services:
 networks:
   bitego_network:
     driver: bridge
+

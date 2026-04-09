@@ -2,7 +2,6 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const { prisma } = require("database");
-const { redisClient } = require("redis-client");
 const { connectProducer } = require("./kafka/producer");
 
 const paymentRoutes = require("./routes/paymentRoutes");

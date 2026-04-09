@@ -37,13 +37,18 @@ export default function RestaurantDetailsPage() {
   }, [restaurantId, API_BASE]);
 
   // Extract unique active offers to show at the top
-  const uniqueOffers = useMemo(() => {
-    return menuData
-      .map(item => item.ActiveOffer)
-      .filter((offer, index, self) => 
-        offer && self.findIndex(t => t.title === offer.title) === index
-      );
-  }, [menuData]);
+ const uniqueOffers = useMemo(() => {
+  const map = new Map();
+
+  menuData.forEach(item => {
+    const offer = item.ActiveOffer;
+    if (offer && offer.title) {
+      map.set(offer.title, offer);
+    }
+  });
+
+  return Array.from(map.values());
+}, [menuData]);
 
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">

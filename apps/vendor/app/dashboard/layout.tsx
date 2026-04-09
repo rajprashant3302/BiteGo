@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState, useEffect, useRef, useCallback } from "react";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
 import {
@@ -13,15 +13,17 @@ import {
   FiClock,
   FiCreditCard,
   FiGrid,
+  FiLoader,
   FiLogOut,
   FiMenu,
   FiPackage,
-  FiPercent,
   FiSearch,
   FiSettings,
   FiShoppingBag,
   FiTrendingUp,
   FiUser,
+  FiVolume2,
+  FiVolumeX,
   FiX,
 } from "react-icons/fi";
 
@@ -34,6 +36,17 @@ type NavItem = {
   href: string;
   icon: React.ReactNode;
   match: (pathname: string) => boolean;
+};
+
+type NotificationItem = {
+  id: string;
+  title: string;
+  text: string;
+  type?: "warning" | "success" | "time" | "info";
+  isRead?: boolean;
+  createdAt?: string;
+  orderId?: string | null;
+  actionUrl?: string | null;
 };
 
 function cn(...classes: Array<string | false | null | undefined>) {
@@ -79,23 +92,6 @@ function SidebarLink({
   );
 }
 
-function StatPill({
-  title,
-  value,
-}: {
-  title: string;
-  value: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-gray-100 bg-white px-4 py-3 shadow-sm">
-      <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-        {title}
-      </p>
-      <p className="mt-1 text-sm font-black text-gray-900">{value}</p>
-    </div>
-  );
-}
-
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const pathname = usePathname();
   const { data: session, status } = useSession();
@@ -104,9 +100,15 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [searchValue, setSearchValue] = useState("");
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [audioReady, setAudioReady] = useState(false);
 
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
+  const previousIdsRef = useRef<string[]>([]);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const userName = useMemo(() => session?.user?.name || "Vendor", [session]);
   const userRole = useMemo(
@@ -116,10 +118,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const pageTitle = useMemo(() => {
     if (pathname === "/dashboard") return "Overview";
-    if (pathname.startsWith("/dashboard/restaurants")) return "Restaurants";
+    if (pathname.startsWith("/partner/restaurants")) return "Restaurants";
     if (pathname.startsWith("/dashboard/orders")) return "Orders";
     if (pathname.startsWith("/dashboard/analytics")) return "Analytics";
-    if (pathname.startsWith("/dashboard/offers")) return "Offers";
     if (pathname.startsWith("/dashboard/payouts")) return "Payouts";
     return "Dashboard";
   }, [pathname]);
@@ -133,9 +134,9 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     },
     {
       label: "Restaurants",
-      href: "/dashboard/restaurants",
+      href: "/partner/restaurants",
       icon: <FiPackage size={18} />,
-      match: (p) => p.startsWith("/dashboard/restaurants"),
+      match: (p) => p.startsWith("/partner/restaurants"),
     },
     {
       label: "Orders",
@@ -150,12 +151,6 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       match: (p) => p.startsWith("/dashboard/analytics"),
     },
     {
-      label: "Offers",
-      href: "/dashboard/offers",
-      icon: <FiPercent size={18} />,
-      match: (p) => p.startsWith("/dashboard/offers"),
-    },
-    {
       label: "Payouts",
       href: "/dashboard/payouts",
       icon: <FiCreditCard size={18} />,
@@ -163,30 +158,158 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     },
   ];
 
-  const notifications = [
-    {
-      title: "Revenue spike detected",
-      text: "Patna Central crossed expected dinner-hour performance.",
-      icon: <FiTrendingUp size={16} className="text-green-600" />,
-    },
-    {
-      title: "Offer expires soon",
-      text: "Weekend Combo campaign is close to expiry.",
-      icon: <FiClock size={16} className="text-amber-600" />,
-    },
-    {
-      title: "Payout pending review",
-      text: "One branch settlement needs attention.",
-      icon: <FiAlertCircle size={16} className="text-red-600" />,
-    },
-  ];
-
   const searchSuggestions = [
     "Search branches",
-    "Search orders",
-    "Search offers",
+    "Search preparing orders",
     "Search payouts",
   ];
+
+  const setupAudio = useCallback(() => {
+    if (!audioRef.current) {
+      audioRef.current = new Audio("/notification.mp3");
+      audioRef.current.preload = "auto";
+      audioRef.current.volume = 0.7;
+    }
+  }, []);
+
+  const unlockAudio = useCallback(async () => {
+    try {
+      setupAudio();
+      if (!audioRef.current) return;
+
+      audioRef.current.volume = 0;
+      audioRef.current.currentTime = 0;
+
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+      }
+
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current.volume = 0.7;
+
+      setAudioReady(true);
+    } catch (err) {
+      console.warn("Audio unlock blocked:", err);
+    }
+  }, [setupAudio]);
+
+  const playNotificationSound = useCallback(async () => {
+    if (!soundEnabled) return;
+
+    try {
+      setupAudio();
+
+      if (!audioRef.current) return;
+
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      audioRef.current.volume = 0.7;
+
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        await playPromise;
+      }
+    } catch (err) {
+      console.warn("Notification sound blocked:", err);
+    }
+  }, [setupAudio, soundEnabled]);
+
+  async function loadNotifications(showSpinner = false) {
+    try {
+      if (showSpinner) setLoadingNotifications(true);
+
+      const base =
+        process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
+
+      const res = await fetch(`${base}/api/notifications`, {
+        cache: "no-store",
+      });
+
+      if (!res.ok) {
+        throw new Error(`Notification API failed with ${res.status}`);
+      }
+
+      const data = await res.json();
+      const rows = Array.isArray(data) ? data : data.notifications || [];
+
+      const currentIds = rows.map((item: NotificationItem) => item.id);
+      const previousIds = previousIdsRef.current;
+
+      const hasNewUnread = rows.some(
+        (item: NotificationItem) =>
+          !item.isRead && !previousIds.includes(item.id)
+      );
+
+      if (hasNewUnread && soundEnabled && audioReady) {
+        playNotificationSound();
+      }
+
+      previousIdsRef.current = currentIds;
+      setNotifications(rows);
+    } catch (error) {
+      console.error("Notification fetch failed", error);
+      setNotifications([]);
+    } finally {
+      if (showSpinner) setLoadingNotifications(false);
+    }
+  }
+
+  async function markNotificationAsRead(item: NotificationItem) {
+    try {
+      const base =
+        process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
+
+      await fetch(`${base}/api/notifications/${item.id}/read`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+      });
+
+      setNotifications((prev) =>
+        prev.map((notification) =>
+          notification.id === item.id
+            ? { ...notification, isRead: true }
+            : notification
+        )
+      );
+    } catch (error) {
+      console.error("Failed to mark notification as read", error);
+    }
+  }
+
+  useEffect(() => {
+    setupAudio();
+  }, [setupAudio]);
+
+  useEffect(() => {
+    const handleFirstInteraction = () => {
+      unlockAudio();
+      window.removeEventListener("click", handleFirstInteraction);
+      window.removeEventListener("keydown", handleFirstInteraction);
+      window.removeEventListener("touchstart", handleFirstInteraction);
+    };
+
+    window.addEventListener("click", handleFirstInteraction);
+    window.addEventListener("keydown", handleFirstInteraction);
+    window.addEventListener("touchstart", handleFirstInteraction);
+
+    return () => {
+      window.removeEventListener("click", handleFirstInteraction);
+      window.removeEventListener("keydown", handleFirstInteraction);
+      window.removeEventListener("touchstart", handleFirstInteraction);
+    };
+  }, [unlockAudio]);
+
+  useEffect(() => {
+    loadNotifications(true);
+
+    const interval = setInterval(() => {
+      loadNotifications(false);
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [soundEnabled, audioReady]);
 
   useEffect(() => {
     setMobileOpen(false);
@@ -231,6 +354,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       document.removeEventListener("keydown", handleEscape);
     };
   }, []);
+
+  const unreadCount = notifications.filter((item) => !item.isRead).length;
 
   const sidebar = (
     <div className="flex h-full flex-col border-r border-gray-200 bg-white">
@@ -282,7 +407,8 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   if (status === "loading") {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50">
-        <div className="rounded-2xl bg-white px-6 py-4 text-sm font-semibold text-gray-700 shadow-sm">
+        <div className="flex items-center gap-3 rounded-2xl bg-white px-6 py-4 text-sm font-semibold text-gray-700 shadow-sm">
+          <FiLoader className="animate-spin text-[#FF651D]" size={18} />
           Loading dashboard...
         </div>
       </div>
@@ -290,9 +416,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top_right,_rgba(255,101,29,0.08),_transparent_30%),linear-gradient(to_bottom,#f9fafb,#f3f4f6)]">
       <div className="flex min-h-screen">
-        <aside className="hidden w-[290px] shrink-0 lg:block">{sidebar}</aside>
+        <aside className="hidden lg:sticky lg:top-0 lg:flex lg:h-screen lg:w-[290px] lg:shrink-0">
+          {sidebar}
+        </aside>
 
         {mobileOpen && (
           <div className="fixed inset-0 z-50 lg:hidden">
@@ -346,7 +474,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     type="text"
                     value={searchValue}
                     onChange={(e) => setSearchValue(e.target.value)}
-                    placeholder="Search branches, orders, offers..."
+                    placeholder="Search branches, orders, payouts..."
                     className="h-12 w-96 rounded-2xl border border-gray-200 bg-white pl-11 pr-4 text-sm font-medium outline-none transition-all focus:border-orange-300 focus:ring-4 focus:ring-orange-100"
                   />
                   {searchValue && (
@@ -370,6 +498,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                   )}
                 </div>
 
+                <button
+                  onClick={() => {
+                    setSoundEnabled((prev) => !prev);
+                    if (!audioReady) unlockAudio();
+                  }}
+                  className={cn(
+                    "inline-flex h-11 w-11 items-center justify-center rounded-2xl border transition",
+                    soundEnabled
+                      ? "border-orange-200 bg-orange-50 text-[#FF651D]"
+                      : "border-gray-200 bg-white text-gray-500"
+                  )}
+                  title="Toggle notification sound"
+                >
+                  {soundEnabled ? <FiVolume2 size={18} /> : <FiVolumeX size={18} />}
+                </button>
+
                 <div className="relative" ref={notificationsRef}>
                   <button
                     onClick={() => {
@@ -380,42 +524,97 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                     aria-label="Open notifications"
                   >
                     <FiBell size={18} />
-                    <span className="absolute right-2 top-2 h-2.5 w-2.5 rounded-full bg-[#FF651D]" />
+                    {unreadCount > 0 ? (
+                      <span className="absolute right-2 top-2 min-w-[18px] rounded-full bg-[#FF651D] px-1.5 py-0.5 text-[10px] font-bold text-white">
+                        {unreadCount}
+                      </span>
+                    ) : null}
                   </button>
 
                   {showNotifications && (
-                    <div className="absolute right-0 top-14 z-50 w-80 rounded-2xl border border-gray-200 bg-white p-4 shadow-xl">
+                    <div className="absolute right-0 top-14 z-50 w-[360px] rounded-2xl border border-gray-200 bg-white p-4 shadow-xl">
                       <div className="mb-3 flex items-center justify-between">
                         <h3 className="text-sm font-black text-gray-900">
                           Notifications
                         </h3>
                         <button
-                          onClick={() => setShowNotifications(false)}
+                          onClick={() => loadNotifications(true)}
                           className="text-xs font-semibold text-gray-500 hover:text-gray-800"
                         >
-                          Close
+                          Refresh
                         </button>
                       </div>
 
-                      <div className="space-y-3">
-                        {notifications.map((item, index) => (
-                          <div
-                            key={`${item.title}-${index}`}
-                            className="rounded-xl bg-gray-50 p-3"
-                          >
-                            <div className="flex items-start gap-2">
-                              <div className="mt-0.5">{item.icon}</div>
-                              <div>
-                                <p className="text-sm font-semibold text-gray-900">
-                                  {item.title}
-                                </p>
-                                <p className="mt-1 text-xs text-gray-500">
-                                  {item.text}
-                                </p>
+                      <div className="mb-3 rounded-xl bg-gray-50 px-3 py-2 text-xs font-medium text-gray-500">
+                        Sound: {audioReady ? "ready" : "click anywhere once to enable"}
+                      </div>
+
+                      <div className="max-h-[420px] space-y-3 overflow-y-auto">
+                        {loadingNotifications ? (
+                          <div className="rounded-xl bg-gray-50 p-3 text-sm text-gray-500">
+                            Loading notifications...
+                          </div>
+                        ) : notifications.length === 0 ? (
+                          <div className="rounded-xl bg-gray-50 p-3 text-sm text-gray-500">
+                            No notifications yet.
+                          </div>
+                        ) : (
+                          notifications.map((item) => (
+                            <div
+                              key={item.id}
+                              className={cn(
+                                "rounded-xl border p-3 transition",
+                                item.isRead
+                                  ? "border-gray-100 bg-gray-50"
+                                  : "border-orange-100 bg-orange-50/50"
+                              )}
+                            >
+                              <div className="flex items-start gap-2">
+                                <div className="mt-0.5">
+                                  {item.type === "warning" ? (
+                                    <FiAlertCircle size={16} className="text-amber-600" />
+                                  ) : item.type === "success" ? (
+                                    <FiTrendingUp size={16} className="text-green-600" />
+                                  ) : item.type === "time" ? (
+                                    <FiClock size={16} className="text-blue-600" />
+                                  ) : (
+                                    <FiBell size={16} className="text-[#FF651D]" />
+                                  )}
+                                </div>
+
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {item.title}
+                                  </p>
+                                  <p className="mt-1 text-xs text-gray-500">
+                                    {item.text}
+                                  </p>
+
+                                  <div className="mt-3 flex items-center gap-2">
+                                    {!item.isRead ? (
+                                      <button
+                                        onClick={() => markNotificationAsRead(item)}
+                                        className="rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-gray-700 shadow-sm hover:bg-gray-100"
+                                      >
+                                        Mark read
+                                      </button>
+                                    ) : null}
+
+                                    {item.actionUrl ? (
+                                      <Link
+                                        href={item.actionUrl}
+                                        onClick={() => markNotificationAsRead(item)}
+                                        className="rounded-xl bg-[#FF651D] px-3 py-1.5 text-xs font-bold text-white hover:bg-[#e75a18]"
+                                      >
+                                        Open
+                                      </Link>
+                                    ) : null}
+                                  </div>
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          ))
+                        )}
                       </div>
                     </div>
                   )}
@@ -474,16 +673,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </header>
 
           <main className="flex-1 overflow-y-auto">
-            <div className="space-y-5 px-4 py-5 md:px-6">
-              <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                <StatPill title="Business Mode" value="Operational" />
-                <StatPill title="Access Level" value={userRole} />
-                <StatPill title="Current Route" value={pathname} />
-                <StatPill title="System Health" value="Stable" />
-              </section>
-
-              <div>{children}</div>
-            </div>
+            <div className="px-4 py-6 md:px-6">{children}</div>
           </main>
         </div>
       </div>
