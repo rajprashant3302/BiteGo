@@ -1,0 +1,82 @@
+enum AdminOfferTargetType {
+  User
+  DeliveryPartner
+  RestaurantOwner
+  Restaurant
+  All
+}
+ 
+enum AdminOfferRewardType {
+  Bonus
+  DiscountOnOrder
+  CommissionBonus
+  FreeDelivery
+}
+ 
+enum discount_type_enum {
+  Flat
+  Percentage
+}
+ 
+type AdminOffer {
+  OfferID: ID!
+  Title: String!
+  Description: String
+  RewardType: AdminOfferRewardType!
+  RewardValue: Float!
+  DiscountType: discount_type_enum
+  MaxDiscount: Float
+  MinOrderValue: Float
+  StartTime: String!
+  EndTime: String!
+  IsActive: Boolean!
+  TargetEntity: AdminOfferTargetType!
+  TargetSegment: String # Returned as stringified JSON
+  MaxRedemptionsPerEntity: Int
+  TotalRedemptionLimit: Int
+  CurrentRedemptionCount: Int!
+  CreatedAt: String!
+}
+ 
+type AdminOfferRedemption {
+  RedemptionID: ID!
+  AdminOfferID: ID!
+  TargetEntityId: ID!
+  TargetType: AdminOfferTargetType!
+  RewardDelivered: Boolean!
+  AppliedAt: String!
+}
+ 
+type RedemptionResult {
+  success: Boolean!
+  message: String!
+  redemptionId: ID
+  rewardDelivered: Boolean!
+}
+ 
+# Inputs for creation
+input CreateAdminOfferInput {
+  Title: String!
+  Description: String
+  RewardType: AdminOfferRewardType!
+  RewardValue: Float!
+  DiscountType: discount_type_enum
+  MaxDiscount: Float
+  MinOrderValue: Float
+  StartTime: String!
+  EndTime: String!
+  TargetEntity: AdminOfferTargetType!
+  TargetSegment: String # Stringified JSON
+  MaxRedemptionsPerEntity: Int
+  TotalRedemptionLimit: Int
+}
+ 
+type Query {
+  getActiveAdminOffers(targetEntity: String): [AdminOffer!]!
+}
+ 
+type Mutation {
+  createAdminOffer(input: CreateAdminOfferInput!): AdminOffer!
+  redeemAdminOffer(offerId: ID!, userId: ID!, targetType: AdminOfferTargetType!): RedemptionResult!
+}
+ 

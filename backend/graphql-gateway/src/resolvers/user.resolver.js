@@ -15,7 +15,7 @@ const {
 } = require('../utils/validation');
 
 const bcrypt = require('bcrypt');
-const { prisma } = require('database');
+const { prisma, Decimal } = require('database');
 
 const userResolvers = {
   Query: {

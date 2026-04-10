@@ -18,7 +18,7 @@
 // module.exports = { prisma, PrismaClient };
 
 
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient, Prisma } = require('@prisma/client');
 
 /**
  * Prisma 5 standard initialization
@@ -33,4 +33,4 @@ const prisma = new PrismaClient({
   },
 });
 
-module.exports = { prisma, PrismaClient };
+module.exports = { prisma, PrismaClient, Decimal: Prisma.Decimal };

@@ -2,7 +2,7 @@
 // GRAPHQL CONTEXT & CONFIG
 // ============================================
 
-const { Decimal } = require('@prisma/client/runtime/library');
+const  prisma = require('database');
 
 // Role-based authorization levels
 const ROLE_HIERARCHY = {

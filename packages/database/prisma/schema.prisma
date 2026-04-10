@@ -372,7 +372,7 @@ model Offer {
  
  
 model AdminOffer {
-  OfferID                 String                 @id @default(uuid())
+  AdminOfferID                 String                 @id @default(uuid())
   Title                   String
   Description             String?
   RewardType              AdminOfferRewardType
@@ -383,7 +383,8 @@ model AdminOffer {
   StartTime               DateTime
   EndTime                 DateTime
   IsActive                Boolean                @default(true)
- 
+  Priority Int @default(0)
+  
   // 🎯 Targeting
   TargetEntity            AdminOfferTargetType   // Who gets this offer?
   TargetSegment           Json?                  // Dynamic JSON rules (e.g., { "role": "DeliveryPartner", "zoneId": "zone-123" })
@@ -405,7 +406,7 @@ model AdminOffer {
 model AdminOfferRedemption {
   RedemptionID    String                     @id @default(uuid())
   AdminOfferID    String
-  adminOffer      AdminOffer                 @relation(fields: [AdminOfferID], references: [OfferID])
+  adminOffer      AdminOffer                 @relation(fields: [AdminOfferID], references: [AdminOfferID])
  
   // Polymorphic target ID 
   TargetEntityId  String                     // Maps to UserID, DeliveryPartnerID, etc. (Handle cascade deletes in app logic)
