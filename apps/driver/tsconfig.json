@@ -29,6 +29,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-  ],
+, "components/dashboard/DriverHeader.jsx", "components/dashboard/DriverSidebar.jsx", "components/dashboard/DriverWidgets.jsx", "app/document/page.jsx", "app/settings/page.jsx", "app/profile/page.jsx", "components/DriverWidgets.jsx", "components/DriverSidebar.jsx", "components/DriverHeader.jsx"  ],
   "exclude": ["node_modules"]
 }
