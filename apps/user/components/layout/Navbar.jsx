@@ -34,6 +34,8 @@ export default function Navbar() {
     status
   } = useCart();
 
+  const SEARCH_URL=process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "http://localhost:8001"
+
   // 1. SEARCH LOGIC: Fetch from Elasticsearch Service via FastAPI
   useEffect(() => {
     const fetchResults = async () => {
@@ -47,7 +49,7 @@ export default function Navbar() {
       setShowDropdown(true);
 
       try {
-        const response = await fetch(`http://localhost:8001/search?q=${encodeURIComponent(searchQuery)}`);
+        const response = await fetch(`${SEARCH_URL}/search?q=${encodeURIComponent(searchQuery)}`);
         const json = await response.json();
         setResults(json.data || []);
       } catch (err) {
