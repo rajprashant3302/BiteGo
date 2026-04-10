@@ -1,35 +1,3 @@
-// import React, { useState } from 'react';
-// import { BiSupport } from 'react-icons/bi';
-// import { IoClose } from 'react-icons/io5';
-// import ChatWindow from './ChatWindow';
-
-// const SupportIcon = ({ socket, senderId }) => {
-//     const [isOpen, setIsOpen] = useState(false);
-//     const supportAdminId = "SUPPORT_INBOX";
-
-//     return (
-//         <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
-//             {isOpen && (
-//                 <div className="mb-4 w-[370px] h-[560px] shadow-2xl rounded-2xl overflow-hidden border border-slate-200 animate-in fade-in slide-in-from-bottom-4 duration-300 bg-white">
-//                     <ChatWindow
-//                         socket={socket}
-//                         senderId={senderId}
-//                         receiverId={supportAdminId}
-//                     />
-//                 </div>
-//             )}
-
-//             <button
-//                 onClick={() => setIsOpen(!isOpen)}
-//                 className={`p-4 rounded-full shadow-lg transition-all duration-300 transform hover:scale-110 ${isOpen ? 'bg-red-500 text-white' : 'bg-blue-600 text-white'
-//                     }`}
-//             >
-//                 {isOpen ? <IoClose size={28} /> : <BiSupport size={28} />}
-//             </button>
-//         </div>
-//     );
-// };
-
 // export default SupportIcon;
 import React, { useState } from 'react';
 import { BiSupport } from 'react-icons/bi';

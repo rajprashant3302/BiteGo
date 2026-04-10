@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import { Search, ChevronRight, Loader2, XCircle, MapPin } from 'lucide-react'; // <-- Added MapPin
+import { Search, ChevronRight, Loader2, XCircle, MapPin } from 'lucide-react'; 
 import { cn } from '@/components/ui/cn';
 import Button from '@/components/ui/Button';
 import Categories from './Categories';

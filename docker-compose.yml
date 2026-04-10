@@ -11,6 +11,14 @@ services:
       - admin-web
       - vendor-web
       - driver-web
+      - graphql-gateway
+      - auth-service
+      - order-service
+      - chat-service
+      - delivery-service
+      - payment-service
+      - search-service
+      - ai-ml-service
     networks:
       - bitego_network
 
