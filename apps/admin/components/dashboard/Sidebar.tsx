@@ -19,6 +19,7 @@ const NAV_ITEMS = [
   { label: "All Users",   href: "/all-users" },
   { label: "Restaurants", href: "/restaurants"},
   { label: "Orders",      href: "/orders"    },
+  { label: "Offers",      href: "/offers"    },
   { label: "Analytics",   href: "/analytics" },
   { label: "Invite",      href: "/invite"    },
   { label: "Support",     href: "/chat"   },

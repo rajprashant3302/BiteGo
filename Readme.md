@@ -39,3 +39,11 @@ docker ps -a
 ```bash
 docker-compose down
 
+```
+---
+
+```bash
+#to share localhost
+ssh -p 443 -R0:localhost:80 a.pinggy.io
+```
+
