@@ -28,7 +28,10 @@ exports.placeOrder = async (req, res) => {
         },
         include: { applicableItems: true }
       }),
-      prisma.user.findUnique({ where: { UserID: userId } })
+      prisma.user.findUnique({
+        where: { UserID: userId },
+        select: { UserID: true, WalletBalance: true }
+      })
     ]);
 
     if (!userProfile) throw new Error("User not found");

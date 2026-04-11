@@ -1,44 +1,26 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -e
 
-echo "Waiting for Elasticsearch before running search sync..."
-python - <<'PY'
-import os
-import sys
-import time
-from urllib.request import urlopen
+echo "🔄 Search-service startup: preparing vector index via sync_worker..."
 
-es_host = os.getenv("ES_HOST", "http://bitego_es:9200").rstrip("/")
+MAX_RETRIES="${SYNC_WORKER_MAX_RETRIES:-20}"
+RETRY_DELAY="${SYNC_WORKER_RETRY_DELAY_SECONDS:-5}"
+attempt=1
 
-for attempt in range(1, 31):
-    try:
-        with urlopen(es_host, timeout=5) as response:
-            if 200 <= response.status < 500:
-                print(f"Elasticsearch is reachable at {es_host}")
-                sys.exit(0)
-    except Exception as exc:
-        print(f"Elasticsearch not ready (attempt {attempt}/30): {exc}")
-        time.sleep(5)
-
-print("Elasticsearch did not become ready in time", file=sys.stderr)
-sys.exit(1)
-PY
-
-echo "Running initial search index sync..."
-for attempt in 1 2 3 4 5; do
+while [ "$attempt" -le "$MAX_RETRIES" ]; do
+  echo "sync_worker attempt ${attempt}/${MAX_RETRIES}"
   if python backend/search-service/sync_worker.py; then
-    echo "Search sync completed"
+    echo "✅ sync_worker completed"
     break
   fi
 
-  if [ "$attempt" -eq 5 ]; then
-    echo "Search sync failed after ${attempt} attempts" >&2
-    exit 1
-  fi
-
-  echo "Search sync failed on attempt ${attempt}, retrying in 10 seconds..."
-  sleep 10
+  echo "⚠️ sync_worker failed (attempt ${attempt}). Retrying in ${RETRY_DELAY}s..."
+  attempt=$((attempt + 1))
+  sleep "$RETRY_DELAY"
 done
 
-echo "Starting search API..."
+if [ "$attempt" -gt "$MAX_RETRIES" ]; then
+  echo "❌ sync_worker failed after ${MAX_RETRIES} attempts. Starting API anyway."
+fi
+
 exec python backend/search-service/main.py

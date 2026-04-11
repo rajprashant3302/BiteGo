@@ -322,6 +322,8 @@ services:
       - /bin/bash
       - -c
       - |
+        set -euo pipefail
+        echo "[kafka-init] creating required topics..."
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic user-events --partitions 1 --replication-factor 1
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic payment-success --partitions 1 --replication-factor 1
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic payment-initiated --partitions 1 --replication-factor 1
@@ -331,6 +333,7 @@ services:
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic driver-location-updates --partitions 1 --replication-factor 1
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic auth-events --partitions 1 --replication-factor 1
         kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic send-invite-email --partitions 1 --replication-factor 1
+        echo "[kafka-init] topic bootstrap complete."
     restart: "no"
     networks:
       - bitego_network

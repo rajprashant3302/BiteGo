@@ -4,6 +4,7 @@ import threading
 import json
 import redis
 import numpy as np # Added for vector math
+from urllib.parse import urlparse
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from elasticsearch import Elasticsearch
@@ -24,13 +25,30 @@ logger = logging.getLogger("ai-ml-service")
 
 # --- Infrastructure Connections ---
 ES_HOST = os.getenv("ES_HOST", "http://bitego_es:9200")
-REDIS_HOST = os.getenv("REDIS_HOST", "bitego-redis-1")
+REDIS_URL = os.getenv("REDIS_URL")
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+
+if REDIS_URL:
+    parsed = urlparse(REDIS_URL)
+    redis_host = parsed.hostname or REDIS_HOST
+    redis_port = parsed.port or REDIS_PORT
+    redis_password = parsed.password
+else:
+    redis_host = REDIS_HOST
+    redis_port = REDIS_PORT
+    redis_password = None
 
 es = Elasticsearch(
     [ES_HOST],
     headers={"Accept": "application/vnd.elasticsearch+json; compatible-with=8"}
 )
-r = redis.Redis(host=REDIS_HOST, port=6379, decode_responses=True)
+r = redis.Redis(
+    host=redis_host,
+    port=redis_port,
+    password=redis_password,
+    decode_responses=True
+)
 
 # Initialize Scheduler
 scheduler = AsyncIOScheduler()
@@ -76,6 +94,29 @@ app = FastAPI(lifespan=lifespan)
 async def health():
     return {"status": "ok"}
 
+async def _db_fallback_recommendations(user_id: str, limit: int, source: str):
+    """Fallback recommendations directly from DB when vector index is unavailable."""
+    items = await db.menuitem.find_many(include={"restaurant": True}, take=limit)
+    results = []
+    for item in items:
+        if getattr(item, "IsAvailable", True) is False:
+            continue
+        results.append({
+            "id": item.ItemID,
+            "type": "MENU_ITEM",
+            "name": item.ItemName,
+            "description": item.Description,
+            "category": item.restaurant.CategoryName if getattr(item, "restaurant", None) else "Food",
+            "imageUrl": item.ItemImageURL,
+        })
+
+    return {
+        "user_id": user_id,
+        "source": source,
+        "count": len(results),
+        "results": results[:limit]
+    }
+
 @app.get("/recommendations/{user_id}")
 async def get_recommendations(user_id: str, limit: int = 10):
     try:
@@ -87,14 +128,6 @@ async def get_recommendations(user_id: str, limit: int = 10):
         
         # 2. Get Long-Term (LT) from Redis (Cache)
         lt_json = r.get(f"user:{user_id}:long_term")
-        
-        if not lt_json:
-            # Cache Miss: Go to Neon (Postgres)
-            user_record = await db.user.find_unique(where={'UserID': user_id})
-            if user_record and user_record.longTermVector:
-                lt_json = user_record.longTermVector
-                # Save to Redis for 24 hours so we don't hit DB again
-                r.setex(f"user:{user_id}:long_term", 86400, lt_json)
         
         # 3. Convert LT string to Numpy Array (The missing piece!)
         lt_vec = np.array(json.loads(lt_json)) if lt_json else None
@@ -113,10 +146,13 @@ async def get_recommendations(user_id: str, limit: int = 10):
         else:
             # Fallback to trending if absolutely no data exists
             logger.info(f"No history for {user_id}, returning trending items.")
+            if not es.indices.exists(index="bitego_index"):
+                return await _db_fallback_recommendations(user_id, limit, "db_fallback_trending")
             res = es.search(index="bitego_index", query={"term": {"type": "MENU_ITEM"}}, size=limit)
             return {
-                "user_id": user_id, 
-                "source": "trending", 
+                "user_id": user_id,
+                "source": "trending",
+                "count": len(res["hits"]["hits"]),
                 "results": [hit["_source"] for hit in res["hits"]["hits"]]
             }
 
@@ -127,6 +163,9 @@ async def get_recommendations(user_id: str, limit: int = 10):
             "k": limit,
             "num_candidates": 50
         }
+
+        if not es.indices.exists(index="bitego_index"):
+            return await _db_fallback_recommendations(user_id, limit, "db_fallback_personalized")
 
         response = es.search(
             index="bitego_index",
@@ -146,4 +185,4 @@ async def get_recommendations(user_id: str, limit: int = 10):
 
     except Exception as e:
         logger.error(f"❌ Recommendation Engine Error: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal AI Engine Error: {str(e)}")
+        return await _db_fallback_recommendations(user_id, limit, "db_fallback_error")

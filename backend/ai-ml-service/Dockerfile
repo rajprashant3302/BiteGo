@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y \
 COPY . .
 
 # 3. Install AI-ML dependencies
-RUN pip install --no-cache-dir -r backend/ai-ml-service/requirements.txt
+RUN pip install -r backend/ai-ml-service/requirements.txt
 
 # 4. Generate Prisma Python client
 RUN cd packages/database && \

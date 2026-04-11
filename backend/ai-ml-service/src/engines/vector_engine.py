@@ -2,14 +2,34 @@ import numpy as np
 import redis
 import json
 import logging
+import os
+from urllib.parse import urlparse
 from datetime import datetime
 from elasticsearch import Elasticsearch
 
 logger = logging.getLogger("ai-ml-service.vector-engine")
 
 # --- Redis Connection ---
-# host must match your docker-compose service name
-r = redis.Redis(host='bitego-redis-1', port=6379, decode_responses=True)
+REDIS_URL = os.getenv("REDIS_URL")
+REDIS_HOST = os.getenv("REDIS_HOST", "redis")
+REDIS_PORT = int(os.getenv("REDIS_PORT", "6379"))
+
+if REDIS_URL:
+    parsed = urlparse(REDIS_URL)
+    redis_host = parsed.hostname or REDIS_HOST
+    redis_port = parsed.port or REDIS_PORT
+    redis_password = parsed.password
+else:
+    redis_host = REDIS_HOST
+    redis_port = REDIS_PORT
+    redis_password = None
+
+r = redis.Redis(
+    host=redis_host,
+    port=redis_port,
+    password=redis_password,
+    decode_responses=True
+)
 
 ACTION_WEIGHTS = {
     "view": 1.0,
@@ -67,6 +87,10 @@ def update_user_short_term_vector(es: Elasticsearch, user_id: str, index_name: s
 
         # 3. Batch Fetch Vectors from bitego_index
         # This gets individual item vectors AND the pre-calculated restaurant averages
+        if not es.indices.exists(index="bitego_index"):
+            logger.warning("Skipping intent-vector update: bitego_index does not exist yet.")
+            return
+
         vector_res = es.search(
             index="bitego_index",
             query={"ids": {"values": list(set(lookup_ids))}},

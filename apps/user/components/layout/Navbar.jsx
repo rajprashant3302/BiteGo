@@ -157,7 +157,7 @@ export default function Navbar() {
                           onClick={async () => {
                             setShowDropdown(false);
                             await trackUserSearch(item);
-                            const path = item.type === 'RESTAURANT' ? `/restaurants/${item.id}` : `/item/${item.id}`;
+                            const path = item.type === 'RESTAURANT' ? `/restaurants/${item.id}` : `/menu/${item.id}`;
                             router.push(path);
                           }}
                           className="w-full flex items-center gap-4 p-3 hover:bg-orange-50/50 rounded-2xl transition-all duration-200 text-left group"
