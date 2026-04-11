@@ -19,6 +19,7 @@ services:
       - payment-service
       - search-service
       - ai-ml-service
+      - promotion-service
     networks:
       - bitego_network
 
@@ -169,6 +170,23 @@ services:
         condition: service_healthy
     networks:
       - bitego_network
+
+  promotion-service:
+      build:
+        context: .
+        dockerfile: backend/promotion-service/Dockerfile
+      env_file: .env
+      ports:
+        - "5006:5006"
+      depends_on:
+        db:
+          condition: service_started
+        redis:
+          condition: service_started
+        kafka:
+          condition: service_healthy
+      networks:
+        - bitego_network
 
   # ----------------- SEARCH & ELASTIC -----------------
   elasticsearch:
