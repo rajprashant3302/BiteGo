@@ -6,20 +6,30 @@ export const useSocket = (token) => {
     const [onlineUsers, setOnlineUsers] = useState([]);
 
     useEffect(() => {
-        if (token) {
-            const backendUrl = process.env.NEXT_PUBLIC_CHAT_SERVICE_URL || undefined;
-            const socketPath = process.env.NEXT_PUBLIC_CHAT_SOCKET_PATH || "/chat-socket.io";
+        if (!token) return;
 
-            const socketInstance = io(backendUrl, {
-                path: socketPath,
-                auth: { token }
-            });
+        // const backendUrl =process.env.NEXT_PUBLIC_CHAT_SERVICE_URL || 'http://localhost:5003';
+        const backendUrl =process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost';
 
-            socketInstance.on('onlineUser', (data) => setOnlineUsers(data));
-            setSocket(socketInstance);
+        const socketInstance = io(backendUrl, {
+            path: '/svc/chat/socket.io',
+            auth: { token },
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000
+        });
 
-            return () => socketInstance.disconnect();
-        }
+        socketInstance.on('onlineUser', (data) => setOnlineUsers(data || []));
+        setSocket(socketInstance);
+
+        return () => {
+            socketInstance.removeAllListeners();
+            socketInstance.disconnect();
+            setSocket(null);
+            setOnlineUsers([]);
+        };
     }, [token]);
 
     return { socket, onlineUsers };

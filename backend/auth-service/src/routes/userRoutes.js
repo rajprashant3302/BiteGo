@@ -6,15 +6,54 @@ const { authMiddleware, authorizeRoles } = require("../middleware/authMiddleware
 const {
     getUsers,
     getUserDetails,
-    toggleUserBlock
+    toggleUserBlock,
+    // Add the new restaurant controllers here:
+    getRestaurants,
+    getRestaurantDetails,
+    toggleRestaurantBlock,
+    getOrders,
+    getOrderDetails,
+    updateOrderStatus,
+
+    getDashboardStats,
+    getDashboardSummary
 } = require('../controller/adminController');
 
-
+// ==========================================
+// USER MANAGEMENT ROUTES
+// ==========================================
 router.get('/', getUsers);
+router.get('/:userId', authMiddleware, authorizeRoles("SuperAdmin"), getUserDetails);
+router.patch('/:userId/toggle-status', authMiddleware, authorizeRoles("SuperAdmin"), toggleUserBlock);
 
-router.get('/:userId', authMiddleware,authorizeRoles("SuperAdmin"), getUserDetails);
+// ==========================================
+// RESTAURANT MANAGEMENT ROUTES 
+// (For the Admin Dashboard)
+// ==========================================
 
-router.patch('/:userId/toggle-status', authMiddleware,
-    authorizeRoles("SuperAdmin"), toggleUserBlock);
+// 1. Get all restaurants for the admin table
+// Note: The path here will be /api/users/restaurants/all (assuming this router is mounted at /api/users)
+router.get('/restaurants/all', authMiddleware, authorizeRoles("SuperAdmin"), getRestaurants);
+
+// 2. Get specific restaurant details for the slide-over panel
+router.get('/restaurants/:restaurantId', authMiddleware, authorizeRoles("SuperAdmin"), getRestaurantDetails);
+
+// 3. Toggle restaurant Active/Suspended status
+router.patch('/restaurants/:restaurantId/toggle-status', authMiddleware, authorizeRoles("SuperAdmin"), toggleRestaurantBlock);
+
+
+// ==========================================
+// ORDER MANAGEMENT ROUTES (Admin)
+// ==========================================
+router.get('/orders/all', authMiddleware, authorizeRoles("SuperAdmin"), getOrders);
+router.get('/orders/:orderId', authMiddleware, authorizeRoles("SuperAdmin"), getOrderDetails);
+router.patch('/orders/:orderId/status', authMiddleware, authorizeRoles("SuperAdmin"), updateOrderStatus);
+
+// ==========================================
+// DASHBOARD STATS ROUTES (Admin)
+// ==========================================
+router.get('/dashboard/stats', authMiddleware, authorizeRoles("SuperAdmin"), getDashboardStats);
+router.get('/dashboard/summary', authMiddleware, authorizeRoles("SuperAdmin"), getDashboardSummary);
 
 module.exports = router;
+

@@ -1,14 +1,15 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useMemo } from 'react';
+import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 
 const CartContext = createContext(null);
 
 export function CartProvider({ children }) {
   const { data: session, status } = useSession();
-  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
-  const AUTH_BASE = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "/auth-api";
+  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
+  const AUTH_BASE = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "http://localhost:5000";
+  const PROMOTION_URL = process.env.NEXT_PUBLIC_API_GATEWAY || "http://localhost";
 
   const [cartItems, setCartItems] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -48,7 +49,8 @@ export function CartProvider({ children }) {
 
         if (cartRes.ok) {
           const cartData = await cartRes.json();
-          setCartItems(Array.isArray(cartData) ? cartData : []);
+          setCartItems(Array.isArray(cartData.items) ? cartData.items : (Array.isArray(cartData) ? cartData : []));
+          if (cartData.appliedCoupon) setAppliedCoupon(cartData.appliedCoupon);
         }
 
         if (addrRes.ok) {
@@ -71,10 +73,8 @@ export function CartProvider({ children }) {
     loadInitialData();
   }, [session?.user?.email, session?.user?.id, status, API_BASE, AUTH_BASE]);
 
-
-// ── 2. REFINED USER OBJECT (Using Backend Data) ────────────────
+  // ── 2. USER OBJECT ─────────────────────────────────────────────
   const user = useMemo(() => {
-    // Fallback to session while profile is loading
     return {
       id: userProfile?.UserID || session?.user?.id,
       name: userProfile?.Name || session?.user?.name || "BiteGo User",
@@ -86,8 +86,7 @@ export function CartProvider({ children }) {
     };
   }, [userProfile, session]);
 
-
-  // ── 2. SYNC TO REDIS (Debounced) ───────────────────────────────
+  // ── 3. SYNC TO REDIS ───────────────────────────────────────────
   useEffect(() => {
     if (status !== 'authenticated' || !session?.user?.email || isLoading) return;
 
@@ -98,7 +97,8 @@ export function CartProvider({ children }) {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ 
             userId: session.user.email, 
-            items: cartItems 
+            items: cartItems,
+            appliedCoupon: appliedCoupon 
           }),
         });
       } catch (err) {
@@ -107,9 +107,92 @@ export function CartProvider({ children }) {
     }, 1000);
 
     return () => clearTimeout(syncTimeout);
-  }, [cartItems, session?.user?.email, status, isLoading, API_BASE]);
+  }, [cartItems, appliedCoupon, session?.user?.email, status, isLoading, API_BASE]);
 
-  // ── 3. ACTIONS ────────────────────────────────────────────────
+  // ── 4. CALCULATIONS (Moved Up to fix initialization error) ─────
+  const cartCount = useMemo(() => cartItems.reduce((acc, item) => acc + item.quantity, 0), [cartItems]);
+
+  const cartSubtotal = useMemo(() => {
+    return cartItems.reduce((acc, item) => {
+      const price = item.DiscountedPrice !== undefined ? parseFloat(item.DiscountedPrice) : parseFloat(item.Price);
+      return acc + (price * item.quantity);
+    }, 0);
+  }, [cartItems]);
+
+  const couponDiscountAmount = useMemo(() => {
+    return appliedCoupon ? parseFloat(appliedCoupon.totalDiscount || 0) : 0;
+  }, [appliedCoupon]);
+
+  const deliveryFee = useMemo(() => {
+    const hasFreeDel = appliedCoupon?.appliedOffers?.some(o => o.RewardType === 'FreeDelivery');
+    if (hasFreeDel || cartSubtotal >= 299 || cartCount === 0) return 0;
+    return 50;
+  }, [appliedCoupon, cartSubtotal, cartCount]);
+
+  const amountFromWallet = useMemo(() => {
+    if (!useWallet) return 0;
+    const currentPayable = Math.max(0, cartSubtotal - couponDiscountAmount + deliveryFee);
+    return Math.min(user.walletBalance, currentPayable);
+  }, [useWallet, user.walletBalance, cartSubtotal, couponDiscountAmount, deliveryFee]);
+
+  const cartTotal = Math.max(0, cartSubtotal - couponDiscountAmount + deliveryFee - amountFromWallet);
+
+  // ── 5. PROMOTION LOGIC (Now safely accesses cartSubtotal) ──────
+  const handleApplyCoupon = useCallback(async (manualCode = null) => {
+    if (!user.id || cartItems.length === 0) return;
+
+    const codeToApply = manualCode || couponInput;
+    if (!codeToApply && manualCode !== null) return;
+
+    setCouponError('');
+    try {
+      const res = await fetch(`${PROMOTION_URL}/svc/promotion/api/internal/validate-cart`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          subtotal: cartSubtotal,
+          promoCode: codeToApply ? codeToApply.toUpperCase() : null,
+          userContext: {
+            UserID: user.id,
+            Role: user.role,
+            IsPremium: userProfile?.IsPremium || false,
+            orderCount: userProfile?.orders?.length || 0,
+            ZoneID: userProfile?.ZoneID
+          }
+        }),
+      });
+
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setAppliedCoupon({
+          ...json.data,
+          code: codeToApply ? codeToApply.toUpperCase() : null
+        }); 
+        if (codeToApply) setCouponInput('');
+      } else {
+        if (codeToApply) setCouponError(json.message || "Invalid coupon");
+      }
+    } catch (err) {
+      console.error("Promotion Error:", err);
+    }
+  }, [cartSubtotal, user, userProfile, couponInput, PROMOTION_URL, cartItems.length]);
+
+  const removeCoupon = () => {
+    setAppliedCoupon(null);
+    setCouponInput('');
+    setCouponError('');
+  };
+
+  // ── 6. AUTO-VALIDATION ─────────────────────────────────────────
+  useEffect(() => {
+    if (cartItems.length > 0) {
+      handleApplyCoupon(appliedCoupon?.code || null);
+    } else if (!isLoading) {
+      setAppliedCoupon(null);
+    }
+  }, [cartSubtotal, cartItems.length, isLoading]);
+
+  // ── 7. CART ACTIONS ────────────────────────────────────────────
   const addToCart = (item) => {
     setCartItems(prev => {
       const existing = prev.find(i => i.ItemID === item.ItemID);
@@ -145,85 +228,12 @@ export function CartProvider({ children }) {
     }
   };
 
-  const handleApplyCoupon = async () => {
-    if (!couponInput) return;
-    setCouponError('');
-    try {
-      const res = await fetch(`${API_BASE}/api/orders/coupons/validate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          code: couponInput.toUpperCase(),
-          userId: user.id,
-          orderValue: cartSubtotal 
-        }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setAppliedCoupon(data); 
-        setCouponInput('');
-      } else {
-        setCouponError(data.message || "Invalid coupon");
-      }
-    } catch (err) {
-      setCouponError("Service unavailable.");
-    }
-  };
-
-  const removeCoupon = () => {
-    setAppliedCoupon(null);
-    setCouponInput('');
-  };
-
-  // ── 4. CALCULATIONS (FINALISED) ───────────────────────────────
-  const cartCount = useMemo(() => cartItems.reduce((acc, item) => acc + item.quantity, 0), [cartItems]);
-
-  const cartSubtotal = useMemo(() => {
-    return cartItems.reduce((acc, item) => {
-      const price = item.DiscountedPrice !== undefined ? parseFloat(item.DiscountedPrice) : parseFloat(item.Price);
-      return acc + (price * item.quantity);
-    }, 0);
-  }, [cartItems]);
-
-  const totalSavings = useMemo(() => {
-    return cartItems.reduce((acc, item) => {
-      if (item.DiscountedPrice !== undefined && item.DiscountedPrice < item.Price) {
-        return acc + (parseFloat(item.Price) - parseFloat(item.DiscountedPrice)) * item.quantity;
-      }
-      return acc;
-    }, 0);
-  }, [cartItems]);
-
-  const couponDiscountAmount = useMemo(() => {
-    if (!appliedCoupon) return 0;
-    return appliedCoupon.DiscountType === 'Percentage' 
-      ? (cartSubtotal * parseFloat(appliedCoupon.DiscountValue)) / 100 
-      : parseFloat(appliedCoupon.DiscountValue);
-  }, [appliedCoupon, cartSubtotal]);
-
-  // Delivery Logic: If subtotal < 299 then ₹50, else ₹0
-  const deliveryFee = useMemo(() => {
-    const appliedCouponCode = appliedCoupon?.CouponCode || appliedCoupon?.code;
-    if (appliedCouponCode === 'FREEDEL' || cartSubtotal >= 299 || cartCount === 0) return 0;
-    return 50;
-  }, [appliedCoupon, cartSubtotal, cartCount]);
-
-  // Wallet Logic: Deduct from total after coupon and delivery
-  const amountFromWallet = useMemo(() => {
-    if (!useWallet) return 0;
-    const currentPayable = Math.max(0, cartSubtotal - couponDiscountAmount + deliveryFee);
-    return Math.min(parseFloat(user.walletBalance), currentPayable);
-  }, [useWallet, user.walletBalance, cartSubtotal, couponDiscountAmount, deliveryFee]);
-
-  const cartTotal = Math.max(0, cartSubtotal - couponDiscountAmount + deliveryFee - amountFromWallet);
-
   return (
     <CartContext.Provider value={{
       user, status, searchQuery, setSearchQuery,
-      cartItems, cartCount, cartSubtotal, cartTotal, totalSavings, deliveryFee,
+      cartItems, cartCount, cartSubtotal, cartTotal, totalSavings: 0, deliveryFee,
       isCartOpen, setIsCartOpen, addToCart, removeFromCart, removeItemCompletely, clearCart,
       deliveryMode, setDeliveryMode, showAddToast, setShowAddToast,
-      isOrdered, setIsOrdered,
       selectedAddress, setSelectedAddress, paymentMode, setPaymentMode,
       useWallet, setUseWallet, amountFromWallet,
       couponInput, setCouponInput, appliedCoupon, couponError, couponDiscountAmount, handleApplyCoupon, removeCoupon

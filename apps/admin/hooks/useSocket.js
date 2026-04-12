@@ -6,19 +6,30 @@ export const useSocket = (token) => {
     const [onlineUsers, setOnlineUsers] = useState([]);
 
     useEffect(() => {
-        if (token) {
-            // ✅ Fix: Use NEXT_PUBLIC_ and provide a fallback for local dev
-            const backendUrl = process.env.NEXT_PUBLIC_CHAT_SERVICE_URL || "http://localhost:5003";
-            
-            const socketInstance = io(backendUrl, {
-                auth: { token }
-            });
+        if (!token) return;
 
-            socketInstance.on('onlineUser', (data) => setOnlineUsers(data));
-            setSocket(socketInstance);
+        const backendUrl =
+            process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost';
 
-            return () => socketInstance.disconnect();
-        }
+        const socketInstance = io(backendUrl, {
+            path: '/svc/chat/socket.io',
+            auth: { token },
+            transports: ['websocket', 'polling'],
+            reconnection: true,
+            reconnectionAttempts: Infinity,
+            reconnectionDelay: 1000,
+            reconnectionDelayMax: 5000
+        });
+
+        socketInstance.on('onlineUser', (data) => setOnlineUsers(data || []));
+        setSocket(socketInstance);
+
+        return () => {
+            socketInstance.removeAllListeners();
+            socketInstance.disconnect();
+            setSocket(null);
+            setOnlineUsers([]);
+        };
     }, [token]);
 
     return { socket, onlineUsers };

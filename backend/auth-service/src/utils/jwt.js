@@ -38,5 +38,4 @@ const generateInviteToken = (inviteData) => {
   );
 };
 
-
 module.exports = { generateToken, generateVerificationToken, verifyToken ,generateInviteToken};

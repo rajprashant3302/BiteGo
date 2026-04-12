@@ -1,7 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { MapPin, Phone, ChevronRight, CheckCircle2, Clock, Wallet, FileText, Navigation, ArrowLeft } from 'lucide-react';
+// ── FIX 1: Added 'Tag' to the lucide-react imports ──
+import { MapPin, Phone, ChevronRight, CheckCircle2, Clock, Wallet, FileText, Navigation, ArrowLeft, Tag } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
@@ -9,109 +10,65 @@ import html2canvas from 'html2canvas';
 
 import InvoiceTemplate from '@/components/cart/InvoiceTemplate';
 import { biteToast } from '@/lib/toast';
-import { io } from 'socket.io-client'
-
-function normalizeRouteParam(param) {
-  if (typeof param === 'string') return param;
-  if (Array.isArray(param)) return param[0];
-  return undefined;
-}
+import { io } from 'socket.io-client';
 
 export default function OrderTracking() {
-  const params = useParams();
-  const orderId = normalizeRouteParam(params?.orderId);
+  const { orderId } = useParams();
   const [order, setOrder] = useState(null);
-  const [loadError, setLoadError] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const router = useRouter();
 
   // 1. Fetch Initial Order Data
-  // This only runs ONCE when the orderId changes
   useEffect(() => {
     if (!orderId) return;
 
-    let cancelled = false;
-    (async () => {
-      setLoadError(null);
-      try {
-        const base =
-          process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
-        const res = await fetch(`${base}/api/orders/${orderId}`);
-        const data = await res.json().catch(() => ({}));
-        if (cancelled) return;
-        if (!res.ok || !data?.OrderID) {
-          setOrder(null);
-          setLoadError(data?.message || data?.error || "Could not load this order.");
-          return;
-        }
-        setOrder(data);
-      } catch (err) {
-        if (!cancelled) {
-          console.error("Failed to fetch order", err);
-          setOrder(null);
-          setLoadError("Network error. Check that the order service is reachable.");
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+    fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL}/api/orders/${orderId}`)
+      .then(res => res.json())
+      .then(data => setOrder(data))
+      .catch(err => console.error("Failed to fetch order", err));
   }, [orderId]);
 
-
   // 2. Handle Live Socket Updates
-  // This only runs AFTER the order is fetched and we have the UserID
   useEffect(() => {
-    // Prevent connecting if we don't know who the user is yet
     if (!order?.UserID) return;
 
-    const socket = io(undefined, {
-      path: process.env.NEXT_PUBLIC_ORDER_SOCKET_PATH || "/order-socket.io",
-      transports: ['websocket', 'polling'],
-    });
-    
-    // Join the room
+    const socket = io(process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001");
+
     socket.emit('join_room', `user_${order.UserID}`);
 
-    // Listen for updates
     socket.on('order_status_update', (data) => {
       if (data.orderId === orderId) {
-        // new Audio('/notification.mp3').play().catch(() => {});
         biteToast.success(data.message || `Order is now ${data.status}!`);
-        
-        // Update state
         setOrder(prev => ({ ...prev, OrderStatus: data.status }));
       }
     });
 
-    // Cleanup when component unmounts or dependencies change
     return () => {
       socket.disconnect();
     };
   }, [orderId, order?.UserID]);
 
-
-  // Your Cloudinary function is perfectly fine!
   const uploadToCloudinary = async (file) => {
     const data = new FormData();
     data.append("file", file);
     data.append("upload_preset", process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET);
 
     const res = await fetch(
-      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload`,
+      `https://api.cloudinary.com/v1_1/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/auto/upload`,
       { method: "POST", body: data }
     );
+    
     const result = await res.json();
     return result.secure_url;
   };
+
   const handleDownloadInvoice = async () => {
     if (isGenerating) return;
     setIsGenerating(true);
     const toastId = biteToast.success("Preparing your invoice...");
 
     try {
-      // 1. Check DB (Keep existing logic)
-      const checkRes = await fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api"}/api/orders/${orderId}/invoice-check`);
+      const checkRes = await fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL}/api/orders/${orderId}/invoice-check`);
       const checkData = await checkRes.json();
 
       if (checkData.exists) {
@@ -121,7 +78,6 @@ export default function OrderTracking() {
         return;
       }
 
-      // 2. Generate PDF with "Sanitized" Canvas
       const invoiceElement = document.getElementById('invoice-pdf-template');
 
       const canvas = await html2canvas(invoiceElement, {
@@ -129,13 +85,10 @@ export default function OrderTracking() {
         useCORS: true,
         logging: false,
         backgroundColor: "#ffffff",
-        // This is the fix: It skips trying to parse complex CSS functions 
-        // that html2canvas doesn't understand.
         onclone: (clonedDoc) => {
           const el = clonedDoc.getElementById('invoice-pdf-template');
           el.style.position = "relative";
           el.style.left = "0";
-          // Force standard font stack to avoid parsing advanced font metrics
           el.style.fontFamily = "Arial, sans-serif";
         }
       });
@@ -149,9 +102,8 @@ export default function OrderTracking() {
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
       const pdfBlob = pdf.output('blob');
 
-      // 3. Upload & Save (Keep existing logic)
       const uploadedUrl = await uploadToCloudinary(pdfBlob);
-      await fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api"}/api/orders/invoice/save`, {
+      await fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL}/api/orders/invoice/save`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderId, pdfUrl: uploadedUrl })
@@ -168,47 +120,19 @@ export default function OrderTracking() {
     }
   };
 
-  if (loadError) {
-    return (
-      <main className="min-h-screen bg-slate-50 pt-12 pb-24 px-6 font-sans flex flex-col items-center justify-center">
-        <p className="text-slate-600 font-bold text-center max-w-md mb-6">{loadError}</p>
-        <button
-          type="button"
-          onClick={() => router.push("/orders")}
-          className="px-6 py-3 rounded-2xl bg-orange-500 text-white font-black"
-        >
-          Back to my orders
-        </button>
-      </main>
-    );
-  }
-
   if (!order) return <div className="min-h-screen bg-slate-50 p-12 animate-pulse" />;
 
   const steps = [
     { label: 'Confirmed', status: 'Placed' },
     { label: 'Preparing', status: 'Preparing' },
-    { label: 'Ready', status: 'Prepared' },
     { label: 'On the Way', status: 'PickedUp' },
     { label: 'Delivered', status: 'Delivered' },
   ];
 
-  const statusRank = {
-    Placed: 0,
-    Preparing: 1,
-    Prepared: 2,
-    PickedUp: 3,
-    Delivered: 4,
-    Cancelled: -1,
-  };
-  const currentStep = Math.max(
-    0,
-    statusRank[order.OrderStatus] ?? 0
-  );
+  const currentStep = steps.findIndex(s => s.status === order.OrderStatus);
 
   return (
     <main className="min-h-screen bg-slate-50 pt-12 pb-24 font-sans">
-      {/* Hidden Invoice Template for PDF Generation */}
       <InvoiceTemplate order={order} id="invoice-pdf-template" />
 
       <div className="max-w-4xl mx-auto px-6">
@@ -259,9 +183,7 @@ export default function OrderTracking() {
           </motion.div>
         </div>
 
-        {/* ... (Rest of your Stepper and Info code remains the same) ... */}
         <section className="bg-white rounded-[3rem] p-10 shadow-2xl shadow-slate-200/50 border border-slate-100 mb-8 relative overflow-hidden">
-          {/* Stepper implementation */}
           <div className="flex justify-between items-center mb-12">
             <div>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Live Update</p>
@@ -273,7 +195,7 @@ export default function OrderTracking() {
           </div>
           <div className="relative flex justify-between">
             <div className="absolute top-5 left-0 w-full h-1 bg-slate-100 -z-0" />
-            <div className="absolute top-5 left-0 h-1 bg-orange-500 transition-all duration-1000 -z-0" style={{ width: `${steps.length > 1 ? (currentStep / (steps.length - 1)) * 100 : 0}%` }} />
+            <div className="absolute top-5 left-0 h-1 bg-orange-500 transition-all duration-1000 -z-0" style={{ width: `${(currentStep / (steps.length - 1)) * 100}%` }} />
             {steps.map((step, idx) => (
               <div key={idx} className="relative z-10 flex flex-col items-center gap-3">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center border-4 border-white shadow-lg ${idx <= currentStep ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-400'}`}>
@@ -285,7 +207,6 @@ export default function OrderTracking() {
           </div>
         </section>
 
-        {/* Cashback Card */}
         {order.OrderStatus === 'Delivered' && (
           <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} className="bg-slate-900 rounded-[2.5rem] p-8 mb-8 flex items-center justify-between text-white">
             <div>
@@ -298,13 +219,12 @@ export default function OrderTracking() {
           </motion.div>
         )}
 
-        {/* Driver and Order Detail Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Delivery Partner</p>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 font-black">{order.deliveryPartner?.user?.Name?.[0] || '?'}</div>
+                <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 font-black">{order.deliveryPartner?.user?.Name[0] || '?'}</div>
                 <div>
                   <p className="font-black text-slate-900">{order.deliveryPartner?.user?.Name || 'Assigning...'}</p>
                   <p className="text-xs font-bold text-slate-400">4.8 ★ Professional</p>
@@ -315,19 +235,98 @@ export default function OrderTracking() {
               )}
             </div>
           </div>
+          
+          {/* ── Bill Summary (Zomato Style) ── */}
           <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Bill Summary</p>
+            
             <div className="space-y-3">
-              {(order.items || []).map((item) => (
-                <div key={item.OrderItemID} className="flex justify-between text-sm">
-                  <span className="font-black text-slate-900">{item.Quantity}x <span className="text-slate-400 font-bold ml-1">{item.item?.ItemName ?? "Item"}</span></span>
-                  <span className="font-bold text-slate-900">₹{parseFloat(item.ItemPrice).toFixed(0)}</span>
-                </div>
-              ))}
-              <div className="pt-4 border-t border-slate-50 flex justify-between items-center">
-                <span className="text-xs font-black uppercase text-slate-400">Total Paid</span>
-                <span className="text-xl font-black text-orange-500">₹{parseFloat(order.TotalAmount).toFixed(0)}</span>
+              {/* 1. Base Item List */}
+              <div className="space-y-3 pb-4 border-b border-slate-100">
+                {order.items.map(item => {
+                  const lineTotal = item.Quantity * parseFloat(item.ItemPrice);
+                  return (
+                    <div key={item.OrderItemID} className="flex justify-between text-sm">
+                      <span className="font-bold text-slate-700">
+                        {item.Quantity}x <span className="text-slate-500 font-medium ml-1">{item.item?.ItemName}</span>
+                      </span>
+                      <span className="font-bold text-slate-900">₹{lineTotal.toFixed(0)}</span>
+                    </div>
+                  );
+                })}
               </div>
+
+              {/* 2. Dynamic Math & Coupon Display */}
+              {(() => {
+                const rawSubtotal = order.items.reduce((sum, item) => sum + (item.Quantity * parseFloat(item.ItemPrice)), 0);
+                
+                const hasFreeDelivery = order.redemptions?.some(r => r.adminOffer?.RewardType === 'FreeDelivery');
+                const deliveryFee = (hasFreeDelivery || rawSubtotal >= 299) ? 0 : 50;
+
+                // Find Wallet Payment if any
+                const walletPayment = order.payments?.find(p => p.PaymentMethod === 'Wallet' && p.PaymentStatus === 'Success');
+                const walletAmount = walletPayment ? parseFloat(walletPayment.TotalAmount) : 0;
+
+                return (
+                  <>
+                    <div className="flex justify-between text-slate-500 font-bold text-sm pt-2">
+                      <span>Item Total</span>
+                      <span>₹{rawSubtotal.toFixed(0)}</span>
+                    </div>
+
+                    {/* Render Applied Coupons/Offers */}
+                    {order.redemptions?.map((redemption) => {
+                      if (redemption.adminOffer?.RewardType === 'FreeDelivery') return null;
+                      
+                      const isManual = !!redemption.adminOffer?.PromoCode;
+                      
+                      // FIX 2: Safely parse Metadata to handle DB stringification differences
+                      const meta = typeof redemption.Metadata === 'string' ? JSON.parse(redemption.Metadata) : (redemption.Metadata || {});
+                      const discountValue = parseFloat(meta.discountApplied || 0);
+                      
+                      if (discountValue === 0) return null;
+
+                      return (
+                        <div key={redemption.RedemptionID} className="flex justify-between text-green-600 font-bold text-sm bg-green-50 p-2.5 rounded-xl border border-green-100">
+                          <span className="flex items-center gap-1.5">
+                            <Tag size={14} className={isManual ? "" : "text-green-400"} />
+                            {redemption.adminOffer?.Title} {isManual && `(${redemption.adminOffer.PromoCode})`}
+                          </span>
+                          <span>- ₹{discountValue.toFixed(0)}</span>
+                        </div>
+                      );
+                    })}
+
+                    <div className="flex justify-between text-slate-500 font-bold text-sm">
+                      <span>Delivery Fee</span>
+                      <span className={deliveryFee === 0 ? 'text-green-600' : 'text-slate-900'}>
+                        {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
+                      </span>
+                    </div>
+
+                    {walletAmount > 0 && (
+                      <div className="flex justify-between text-orange-600 font-bold text-sm bg-orange-50 p-2.5 rounded-xl border border-orange-100">
+                        <span className="flex items-center gap-1.5">
+                          <Wallet size={14} /> BiteGo Wallet
+                        </span>
+                        <span>- ₹{walletAmount.toFixed(0)}</span>
+                      </div>
+                    )}
+
+                    <div className="pt-4 mt-2 border-t border-slate-100 flex justify-between items-end">
+                      <div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">
+                          Paid via {order.payments?.find(p => p.PaymentMethod !== 'Wallet')?.PaymentMethod || 'Wallet'}
+                        </span>
+                        <p className="text-3xl font-black text-orange-500 mt-1">₹{parseFloat(order.TotalAmount).toFixed(0)}</p>
+                      </div>
+                      <div className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${order.payments?.some(p => p.PaymentStatus === 'Success') ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'}`}>
+                        {order.payments?.some(p => p.PaymentStatus === 'Success') ? 'Success' : 'Pending'}
+                      </div>
+                    </div>
+                  </>
+                );
+              })()}
             </div>
           </div>
         </div>

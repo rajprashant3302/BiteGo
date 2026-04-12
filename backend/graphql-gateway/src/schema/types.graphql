@@ -1,0 +1,352 @@
+# ============================================
+# SCALARS & ENUMS
+# ============================================
+
+scalar DateTime
+scalar Decimal
+
+enum UserRole {
+  RestaurantOwner
+  DeliveryPartner
+  User
+  SuperAdmin
+  Ops
+  Support
+}
+
+enum PaymentMethod {
+  UPI
+  Card
+  Wallet
+  COD
+}
+
+enum PaymentStatus {
+  Pending
+  Success
+  Failed
+}
+
+enum OrderStatus {
+  Placed
+  Preparing
+  PickedUp
+  Delivered
+  Cancelled
+}
+
+enum DiscountType {
+  Flat
+  Percentage
+}
+
+enum TicketStatus {
+  Open
+  InProgress
+  Resolved
+}
+
+enum TransactionType {
+  Credit
+  Debit
+}
+
+# ============================================
+# CORE TYPES
+# ============================================
+
+type User {
+  id: ID!
+  name: String!
+  email: String!
+  phone: String
+  role: UserRole
+  profilePicUrl: String
+  walletBalance: Decimal!
+  isActive: Boolean!
+  createdAt: DateTime!
+  
+  # Relations
+  addresses: [Address!]
+  orders: [Order!]
+  payments: [Payment!]
+  reviews: [Review!]
+  supportTickets: [SupportTicket!]
+  notifications: [Notification!]
+  walletTransactions: [WalletTransaction!]
+  
+  # Role-based
+  restaurantOwner: RestaurantOwner
+  deliveryPartner: DeliveryPartner
+}
+
+type Address {
+  id: ID!
+  addressLine: String
+  city: String
+  pincode: String
+  latitude: Decimal
+  longitude: Decimal
+  isDefault: Boolean!
+  userId: ID!
+}
+
+type RestaurantOwner {
+  id: ID!
+  panNumber: String!
+  bankAccountNo: String
+  ifsc: String
+  userId: ID!
+  restaurants: [Restaurant!]!
+}
+
+type DeliveryPartner {
+  id: ID!
+  vehicleNumber: String
+  licenseNumber: String
+  currentLatitude: Decimal
+  currentLongitude: Decimal
+  isAvailable: Boolean!
+  userId: ID!
+  assignedOrders: [Order!]!
+}
+
+# ============================================
+# RESTAURANT & MENU TYPES
+# ============================================
+
+type Restaurant {
+  id: ID!
+  name: String!
+  categoryName: String
+  latitude: Decimal
+  longitude: Decimal
+  rating: Decimal
+  isActive: Boolean!
+  isOpen: Boolean!
+  ownerId: ID
+  owner: RestaurantOwner
+  zoneId: ID
+  
+  # Relations
+  menuItems: [MenuItem!]!
+  orders: [Order!]!
+  reviews: [Review!]!
+  offers: [Offer!]!
+}
+
+type MenuItem {
+  id: ID!
+  itemName: String!
+  description: String
+  itemImageUrl: String
+  price: Decimal!
+  isVeg: Boolean
+  isAvailable: Boolean!
+  availableQuantity: Int!
+  restaurantId: ID!
+  restaurant: Restaurant!
+  
+  # Relations
+  offerMenuItems: [Offer!]
+}
+
+# ============================================
+# ORDER & PAYMENT TYPES
+# ============================================
+
+type Order {
+  id: ID!
+  orderDateTime: DateTime!
+  totalAmount: Decimal
+  orderStatus: OrderStatus
+  restaurantEarning: Decimal!
+  deliveryPartnerEarning: Decimal!
+  
+  userId: ID!
+  user: User!
+  
+  restaurantId: ID!
+  restaurant: Restaurant!
+  
+  deliveryPartnerId: ID
+  deliveryPartner: DeliveryPartner
+  
+  addressId: ID
+  address: Address
+  
+  offerId: ID
+  offer: Offer
+  
+  # Relations
+  items: [OrderItem!]!
+  payments: [Payment!]!
+  invoice: Invoice
+  reviews: [Review!]!
+  supportTickets: [SupportTicket!]!
+  couponUsages: [CouponUsage!]!
+}
+
+type OrderItem {
+  id: ID!
+  quantity: Int!
+  itemPrice: Decimal
+  orderId: ID!
+  itemId: ID!
+  item: MenuItem!
+}
+
+type Payment {
+  id: ID!
+  totalAmount: Decimal
+  paymentMethod: PaymentMethod
+  paymentStatus: PaymentStatus
+  transactionReference: String
+  paymentDate: DateTime!
+  
+  userId: ID!
+  user: User!
+  
+  orderId: ID!
+  order: Order!
+}
+
+type Invoice {
+  id: ID!
+  invoiceDate: DateTime!
+  pdfUrl: String
+  orderId: ID!
+  order: Order!
+}
+
+# ============================================
+# REVIEW & RATING TYPES
+# ============================================
+
+type Review {
+  id: ID!
+  ratingRestaurant: Int
+  ratingDelivery: Int
+  reviewText: String
+  userId: ID!
+  user: User!
+  restaurantId: ID!
+  restaurant: Restaurant!
+  orderId: ID!
+  order: Order!
+}
+
+# ============================================
+# COUPON & OFFER TYPES
+# ============================================
+
+type Coupon {
+  id: ID!
+  couponCode: String!
+  discountType: DiscountType
+  discountValue: Decimal
+  expiryDate: DateTime
+  isActive: Boolean!
+  usages: [CouponUsage!]!
+}
+
+type CouponUsage {
+  id: ID!
+  usedAt: DateTime!
+  userId: ID!
+  user: User!
+  couponId: ID!
+  coupon: Coupon!
+  orderId: ID!
+  order: Order!
+}
+
+type Offer {
+  id: ID!
+  title: String!
+  description: String
+  discountType: DiscountType!
+  discountValue: Decimal!
+  minOrderValue: Decimal!
+  maxDiscount: Decimal
+  startTime: DateTime!
+  endTime: DateTime!
+  isActive: Boolean!
+  restaurantId: ID
+  restaurant: Restaurant
+  applicableItems: [MenuItem!]!
+}
+
+# ============================================
+# SUPPORT & NOTIFICATION TYPES
+# ============================================
+
+type SupportTicket {
+  id: ID!
+  issueType: String
+  description: String
+  status: TicketStatus
+  createdAt: DateTime!
+  userId: ID!
+  user: User!
+  orderId: ID!
+  order: Order!
+}
+
+type Notification {
+  id: ID!
+  title: String
+  body: String
+  actionLink: String
+  isRead: Boolean!
+  receivedAt: DateTime!
+  userId: ID!
+  user: User!
+}
+
+type WalletTransaction {
+  id: ID!
+  transactionType: TransactionType
+  amount: Decimal
+  description: String
+  createdAt: DateTime!
+  userId: ID!
+  user: User!
+}
+
+# ============================================
+# RESPONSE TYPES
+# ============================================
+
+type AuthPayload {
+  token: String!
+  user: User!
+}
+
+type SuccessResponse {
+  success: Boolean!
+  message: String!
+}
+
+type PaginatedOrders {
+  orders: [Order!]!
+  total: Int!
+  page: Int!
+  pageSize: Int!
+}
+
+type PaginatedRestaurants {
+  restaurants: [Restaurant!]!
+  total: Int!
+  page: Int!
+  pageSize: Int!
+}
+
+type ServiceZone {
+  id: ID!
+  zoneName: String
+  city: String
+  radiusKm: Decimal
+  users: [User!]!
+  restaurants: [Restaurant!]!
+}

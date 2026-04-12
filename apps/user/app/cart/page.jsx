@@ -1,7 +1,8 @@
 'use client';
 
-import { motion } from 'framer-motion';
-import { ShoppingBag, CheckCircle2, Zap, ShoppingCart, MapPin, ChevronRight, ArrowLeft, Trash2, Check, Wallet } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ShoppingBag, CheckCircle2, Zap, ShoppingCart, MapPin, ChevronRight, ArrowLeft,ArrowRight ,Trash2, Check, Wallet, Tag, Sparkles, Loader2 } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import Button from '@/components/ui/Button';
 import CartItem from '@/components/cart/CartItem';
@@ -10,8 +11,9 @@ import CheckoutOverlay from '@/components/cart/CheckoutOverlay';
 import { useRouter } from 'next/navigation';
 import { biteToast } from '@/lib/toast';
 
-const PAYMENT_API_BASE = process.env.NEXT_PUBLIC_PAYMENT_SERVICE_URL || "/payment-api";
-
+const PAYMENT_API_BASE = process.env.NEXT_PUBLIC_PAYMENT_SERVICE_URL || "http://localhost:5005";
+const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
+const API_GATEWAY = process.env.NEXT_PUBLIC_API_GATEWAY || "http://localhost";
 
 const loadRazorpayScript = () => {
   return new Promise((resolve) => {
@@ -27,7 +29,6 @@ const loadRazorpayScript = () => {
   });
 };
 
-
 export default function CartPage() {
   const router = useRouter();
   const {
@@ -38,52 +39,63 @@ export default function CartPage() {
     deliveryFee,
     appliedCoupon,
     isOrdered,
-    setIsOrdered,
     selectedAddress,
     clearCart,
     paymentMode,
     setPaymentMode,
     useWallet,
     setUseWallet,
-    amountFromWallet, 
-    couponDiscountAmount
+    amountFromWallet,
   } = useCart();
 
+  const [publicOffers, setPublicOffers] = useState([]);
+  
+  // ── NEW: CHECKOUT PROGRESS STATE ──
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [checkoutStatus, setCheckoutStatus] = useState('');
+  const [progress, setProgress] = useState(0);
 
-  // Safety check for wallet balance display
-  const walletBalance = parseFloat(user?.walletBalance || 0);
-    const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
-    const SEARCH_SERVICE_BASE = process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "/search-api";
-
-    const trackOrderPlaced = async (orderId) => {
+  // FETCH PUBLIC OFFERS
+  useEffect(() => {
+    const fetchOffers = async () => {
       try {
-        await fetch(`${SEARCH_SERVICE_BASE}/api/order-placed`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            event: "ORDER_PLACED",
-            orderId,
-            restaurantId: cartItems[0]?.RestaurantID,
-            userId: user?.id || user?.email || "anonymous-user",
-            totalAmount: cartTotal,
-            itemCount: cartItems.reduce((sum, item) => sum + (item.quantity || 0), 0),
-          }),
-        });
+        const res = await fetch(`${API_GATEWAY}/svc/promotion/api/public/offers`);
+        if (res.ok) {
+          const json = await res.json();
+          setPublicOffers(json.data || []);
+        }
       } catch (err) {
-        console.error("Order placed tracking failed:", err);
+        console.error("Failed to fetch offers for summary", err);
       }
     };
+    fetchOffers();
+  }, []);
 
-    const handleRazorpayPayment = async (orderResult) => {
+  const walletBalance = parseFloat(user?.walletBalance || 0);
+
+  // Helper to reset progress if something fails
+  const resetProgress = () => {
+    setIsProcessing(false);
+    setCheckoutStatus('');
+    setProgress(0);
+  };
+
+  const handleRazorpayPayment = async (orderResult) => {
+    setCheckoutStatus("Loading secure payment gateway...");
+    setProgress(50);
+    
     const isScriptLoaded = await loadRazorpayScript();
 
     if (!isScriptLoaded) {
-      setIsOrdered(false);
       biteToast.error("Failed to load payment gateway. Please check your connection.");
+      resetProgress();
       return;
     }
 
     try {
+      setCheckoutStatus("Initializing payment details...");
+      setProgress(65);
+
       // A. Call your Payment Service to create a Razorpay Order
       const createOrderRes = await fetch(`${PAYMENT_API_BASE}/api/payments/create-razorpay-order`, {
         method: "POST",
@@ -100,17 +112,22 @@ export default function CartPage() {
         throw new Error("Could not initialize payment.");
       }
 
+      setCheckoutStatus("Awaiting your payment...");
+      setProgress(80);
+
       // B. Configure Razorpay Options
-      console.log(process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID)
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID, 
         amount: orderData.order.amount, 
         currency: "INR",
-        name: "Food Delivery App", 
+        name: "BiteGo Delivery", 
         description: `Order Payment`,
         order_id: orderData.order.id, 
         handler: async function (response) {
-          // C. Verify Payment after user completes it in the UI overlay
+          // C. Verify Payment after user completes it
+          setCheckoutStatus("Verifying payment...");
+          setProgress(95);
+
           try {
             const verifyRes = await fetch(`${PAYMENT_API_BASE}/api/payments/verify`, {
               method: "POST",
@@ -125,95 +142,108 @@ export default function CartPage() {
             const verifyData = await verifyRes.json();
 
             if (verifyData.success) {
-              await clearCart();
-              setIsOrdered(false);
-              router.push(`/order-success/${orderResult.orderId}`); // <--- Uses router from useRouter()
+              setProgress(100);
+              setCheckoutStatus("Payment successful! Redirecting...");
+              clearCart(); 
+              setTimeout(() => {
+                router.push(`/order-success/${orderResult.orderId}`); 
+              }, 500);
             } else {
-              setIsOrdered(false);
               biteToast.error("Payment verification failed.");
+              resetProgress();
               router.push(`/orders/${orderResult.orderId}`);
             }
           } catch (error) {
-            setIsOrdered(false);
             biteToast.error("Server error during verification.");
+            resetProgress();
           }
         },
         prefill: {
-          name: user?.name || "Customer", // <--- Uses user from useCart()
+          name: user?.name || "Customer", 
           email: user?.email || "",
           contact: user?.phone || "",
         },
         theme: {
           color: "#f97316", 
         },
+        // Handle if user explicitly closes the popup without paying
+        modal: {
+          ondismiss: function() {
+            biteToast.error("Payment cancelled by user.");
+            resetProgress();
+          }
+        }
       };
 
       // D. Open the Razorpay Checkout Interface
       const paymentObject = new window.Razorpay(options);
       
       paymentObject.on('payment.failed', function (response){
-        setIsOrdered(false);
-        biteToast.error("Payment failed or cancelled.");
+        biteToast.error("Payment failed.");
+        resetProgress();
         router.push(`/orders/${orderResult.orderId}`);
       });
 
       paymentObject.open();
 
     } catch (error) {
-      setIsOrdered(false);
       biteToast.error(error.message || "Something went wrong loading payment.");
+      resetProgress();
     }
   };
 
- const onPlaceOrder = async () => {
-  if (!selectedAddress) {
-    biteToast.error("Please select a delivery address");
-    return;
-  }
-
-  try {
-    setIsOrdered(true);
-
-    // 1. Call your placeOrder API (The one we wrote earlier)
-    const response = await fetch(`${API_BASE}/api/orders/place-order`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: user.id,
-        restaurantId: cartItems[0]?.RestaurantID,
-        items: cartItems.map(item => ({
-          id: item.ItemID,
-          price: item.DiscountedPrice || item.Price,
-          quantity: item.quantity
-        })),
-        addressId: selectedAddress.AddressID,
-        useWallet: useWallet,
-        paymentMethod: paymentMode,
-        couponCode: appliedCoupon?.CouponCode || appliedCoupon?.code || null
-      })
-    });
-
-    const result = await response.json();
-
-    if (!response.ok) throw new Error(result.error);
-    await trackOrderPlaced(result.orderId);
-
-    // 2. Handle Payment Logic
-    if (paymentMode === 'cod' || result.remainingAmount === 0) {
-      // If COD or fully paid by Wallet, go straight to success
-      await clearCart();
-      setIsOrdered(false);
-      router.push(`/order-success/${result.orderId}`);
-    } else {
-      // If Online, trigger Razorpay
-      await handleRazorpayPayment(result);
+  const onPlaceOrder = async () => {
+    if (!selectedAddress) {
+      biteToast.error("Please select a delivery address");
+      return;
     }
 
-  } catch (err) {
-    setIsOrdered(false);
-    biteToast.error(err.message || "Something went wrong");
-  }
-};
+    try {
+      // Start Processing UI
+      setIsProcessing(true);
+      setCheckoutStatus("Creating your order...");
+      setProgress(20);
+
+      // 1. Call your placeOrder API
+      const response = await fetch(`${API_BASE}/api/orders/place-order`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user.id,
+          restaurantId: cartItems[0]?.RestaurantID,
+          items: cartItems.map(item => ({
+            id: item.ItemID,
+            price: item.DiscountedPrice || item.Price,
+            quantity: item.quantity
+          })),
+          addressId: selectedAddress.AddressID,
+          useWallet: useWallet,
+          paymentMethod: paymentMode,
+          couponCode: appliedCoupon?.code || null 
+        })
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) throw new Error(result.error);
+
+      // 2. Handle Payment Logic
+      if (paymentMode === 'cod' || result.remainingAmount === 0) {
+        setProgress(100);
+        setCheckoutStatus("Order placed successfully!");
+        clearCart();
+        setTimeout(() => {
+          router.push(`/order-success/${result.orderId}`);
+        }, 600);
+      } else {
+        handleRazorpayPayment(result);
+      }
+
+    } catch (err) {
+      biteToast.error(err.message || "Something went wrong");
+      resetProgress();
+    }
+  };
 
   if (cartItems.length === 0) {
     return (
@@ -257,7 +287,7 @@ export default function CartPage() {
                   </div>
                   <h3 className="text-xl font-black text-slate-900">Delivery Address</h3>
                 </div>
-                <Button variant="ghost" onClick={() => router.push('/cart/addresses')} className="text-orange-500 font-black text-xs uppercase">
+                <Button variant="ghost" onClick={() => router.push('/cart/addresses')} className="text-orange-500 font-black text-xs uppercase" disabled={isProcessing}>
                   Change <ChevronRight size={14} className="ml-1" />
                 </Button>
               </div>
@@ -272,7 +302,7 @@ export default function CartPage() {
                     <CheckCircle2 className="text-green-500" size={24} />
                   </div>
                 ) : (
-                  <button onClick={() => router.push('/addresses')} className="w-full py-4 text-orange-500 font-black italic underline">Add Delivery Address</button>
+                  <button onClick={() => router.push('/cart/addresses')} className="w-full py-4 text-orange-500 font-black italic underline" disabled={isProcessing}>Add Delivery Address</button>
                 )}
               </div>
             </section>
@@ -281,7 +311,7 @@ export default function CartPage() {
               <h3 className="text-xl font-black text-slate-900 mb-8 flex items-center gap-2"><ShoppingBag size={20}/> Review Items</h3>
               <div className="divide-y divide-slate-50">
                 {cartItems.map(item => (
-                  <div key={item.ItemID} className="py-6 first:pt-0 last:pb-0">
+                  <div key={item.ItemID} className={`py-6 first:pt-0 last:pb-0 ${isProcessing ? 'opacity-60 pointer-events-none' : ''}`}>
                     <CartItem item={item} />
                   </div>
                 ))}
@@ -293,7 +323,7 @@ export default function CartPage() {
           <aside className="lg:col-span-4 space-y-6 sticky top-28">
             
             {/* Payment Method */}
-            <div className="bg-white rounded-[2rem] p-6 shadow-xl border border-slate-100">
+            <div className={`bg-white rounded-[2rem] p-6 shadow-xl border border-slate-100 ${isProcessing ? 'opacity-60 pointer-events-none' : ''}`}>
               <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Payment Method</p>
               <div className="space-y-3">
                 {['online', 'cod'].map((mode) => (
@@ -309,7 +339,7 @@ export default function CartPage() {
             </div>
 
             {/* Wallet Toggle */}
-            <div className="bg-white rounded-[2rem] p-6 shadow-xl border border-slate-100">
+            <div className={`bg-white rounded-[2rem] p-6 shadow-xl border border-slate-100 ${isProcessing ? 'opacity-60 pointer-events-none' : ''}`}>
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">BiteGo Wallet</p>
                 <span className="text-[10px] font-black text-orange-500">Balance: ₹{walletBalance.toFixed(0)}</span>
@@ -325,37 +355,103 @@ export default function CartPage() {
               </button>
             </div>
 
-            <CouponSection />
+            <div className={`${isProcessing ? 'opacity-60 pointer-events-none' : ''}`}>
+               <CouponSection />
+            </div>
 
-            {/* Bill Details */}
+            {/* BILL DETAILS & CHECKOUT ACTION */}
             <div className="bg-white rounded-[2.5rem] p-8 shadow-2xl border-2 border-orange-500/5">
               <h3 className="text-lg font-black text-slate-900 mb-6 uppercase">Bill Details</h3>
               <div className="space-y-4">
+                
+                {/* Math Breakdown */}
                 <div className="flex justify-between text-slate-500 font-bold text-sm">
-                  <span>Subtotal</span><span>₹{cartSubtotal.toFixed(0)}</span>
+                  <span>Subtotal</span>
+                  <span>₹{cartSubtotal.toFixed(0)}</span>
                 </div>
-                {appliedCoupon && (
-                  <div className="flex justify-between text-green-600 font-bold text-sm bg-green-50 p-2 rounded-lg">
-                    <span>Coupon ({appliedCoupon.code})</span><span>- ₹{couponDiscountAmount.toFixed(0)}</span>
-                  </div>
-                )}
+
+                <AnimatePresence>
+                  {appliedCoupon?.appliedOffers?.map((offerObj) => {
+                    const detail = publicOffers.find(o => o.OfferID === offerObj.offerId);
+                    const isManualCode = appliedCoupon.code && (detail?.PromoCode === appliedCoupon.code || !detail);
+                    
+                    return (
+                      <motion.div 
+                        key={offerObj.offerId}
+                        initial={{ opacity: 0, x: -10 }} 
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 10 }}
+                        className="flex justify-between text-green-600 font-bold text-sm bg-green-50 p-3 rounded-2xl border border-green-100"
+                      >
+                        <span className="flex items-center gap-2">
+                          {isManualCode ? <Tag size={14} /> : <Sparkles size={14} />}
+                          {detail?.Title || (isManualCode ? `Code (${appliedCoupon.code})` : 'Platform Offer')}
+                        </span>
+                        <span>- ₹{parseFloat(offerObj.appliedDiscount || 0).toFixed(0)}</span>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+
                 <div className="flex justify-between text-slate-500 font-bold text-sm">
-                  <span>Delivery Fee</span><span className={deliveryFee === 0 ? 'text-green-600' : ''}>{deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}</span>
+                  <span>Delivery Fee</span>
+                  <span className={deliveryFee === 0 ? 'text-green-600 font-black' : ''}>
+                    {deliveryFee === 0 ? 'FREE' : `₹${deliveryFee}`}
+                  </span>
                 </div>
+
                 {useWallet && amountFromWallet > 0 && (
                   <div className="flex justify-between text-orange-600 font-bold text-sm bg-orange-50 p-2 rounded-lg">
-                    <span>Wallet Applied</span><span>- ₹{amountFromWallet.toFixed(0)}</span>
+                    <span>Wallet Applied</span>
+                    <span>- ₹{amountFromWallet.toFixed(0)}</span>
                   </div>
                 )}
-                <div className="pt-6 border-t border-slate-100 flex justify-between items-end">
+
+                <div className="pt-6 border-t border-slate-100 flex justify-between items-end mb-4">
                   <div>
                     <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Payable</span>
                     <p className="text-4xl font-black text-orange-500 mt-1">₹{cartTotal.toFixed(0)}</p>
                   </div>
                 </div>
-                <Button className="w-full h-16 text-lg rounded-2xl shadow-xl mt-4" onClick={onPlaceOrder} disabled={isOrdered || !selectedAddress}>
-                  {isOrdered ? "Processing..." : "Place Order"}
-                </Button>
+
+                {/* ── NEW: PROGRESS BAR UI ── */}
+                <AnimatePresence mode="wait">
+                  {isProcessing ? (
+                    <motion.div 
+                      key="progress"
+                      initial={{ opacity: 0, height: 0 }} 
+                      animate={{ opacity: 1, height: 'auto' }} 
+                      exit={{ opacity: 0, height: 0 }}
+                      className="bg-slate-50 rounded-2xl p-4 border border-slate-200 mt-4 overflow-hidden"
+                    >
+                      <div className="flex justify-between text-[10px] font-black text-slate-500 uppercase tracking-widest mb-3">
+                        <span className="flex items-center gap-1.5 text-orange-600">
+                          <Loader2 size={12} className="animate-spin" /> {checkoutStatus}
+                        </span>
+                        <span>{progress}%</span>
+                      </div>
+                      <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
+                        <motion.div 
+                          className="bg-orange-500 h-full rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${progress}%` }}
+                          transition={{ duration: 0.4, ease: "easeInOut" }}
+                        />
+                      </div>
+                    </motion.div>
+                  ) : (
+                    <motion.div key="button" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
+                      <Button 
+                        className="w-full h-16 text-lg rounded-2xl shadow-xl mt-2 flex justify-center items-center gap-2" 
+                        onClick={onPlaceOrder} 
+                        disabled={isOrdered || !selectedAddress || isProcessing}
+                      >
+                        Place Order <ArrowRight size={20} />
+                      </Button>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
               </div>
             </div>
           </aside>

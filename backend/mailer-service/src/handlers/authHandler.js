@@ -16,6 +16,7 @@ const handleAuthEvent = async (event) => {
 
   let subject = "";
   let html = "";
+  console.log("Message:" ,type)
 
   switch (type) {
     case "USER_REGISTRATION_INITIATED":

@@ -1,104 +1,93 @@
 "use client";
-
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { Clock } from "lucide-react";
 
-export default function AdminRegister() {
-  const router = useRouter();
+import Sidebar from "@/components/dashboard/Sidebar";
+import Header from "@/components/dashboard/Header";
+import RevenueOverview from "@/components/dashboard/RevenueOverview";
+import RecentOrders from "@/components/dashboard/RecentOrders";
+import {
+  StatCards,
+  TopRestaurants,
+  QuickActions,
+  PlatformHealth,
+} from "@/components/dashboard/DashboardWidgets";
 
-  const [name, setName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [message, setMessage] = useState("");
-  const [loading, setLoading] = useState(false);
+export default function AdminDashboard() {
+  const { data: session } = useSession();
 
-  const BACKEND_URL =
-    process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:5000";
+  const [sidebarOpen, setSidebarOpen] = useState<boolean>(false);
+  const [activeNav, setActiveNav] = useState<string>("Dashboard");
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setMessage("");
-    setLoading(true);
-
-    try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          email,
-          password,
-          role: "SuperAdmin", // 🔒 force admin role
-        }),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.message || "Registration failed");
-      }
-
-      setMessage("✅ Admin registered successfully!");
-
-      setTimeout(() => {
-        router.push("/login");
-      }, 1500);
-    } catch (error: any) {
-      setMessage("❌ " + error.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const adminName: string = session?.user?.name || "Admin";
+  const adminEmail: string = session?.user?.email || "";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-md">
-        <h2 className="text-2xl font-bold text-center mb-6">
-          Admin Registration
-        </h2>
+    /* 1. Changed main wrapper to flex-col so Header sits on top and spans full width */
+    <div className="h-screen bg-gray-50 font-sans flex flex-col text-gray-900 overflow-hidden">
+      {/* HEADER: Now at the very top level, it naturally takes 100% width */}
+      <Header
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        adminName={adminName}
+      />
 
-        <form onSubmit={handleRegister} className="space-y-4">
-          <input
-            type="text"
-            placeholder="Full Name"
-            value={name}
-            required
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black outline-none"
-          />
+      {/* LOWER SECTION: Contains Sidebar and Main Content side-by-side */}
+      <div className="flex-1 flex min-h-0">
+        {/* SIDEBAR: Now sits below the header */}
+        <Sidebar
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          activeNav={activeNav}
+          setActiveNav={setActiveNav}
+          adminName={adminName}
+          adminEmail={adminEmail}
+        />
 
-          <input
-            type="email"
-            placeholder="Email Address"
-            value={email}
-            required
-            onChange={(e) => setEmail(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black outline-none"
-          />
+        {/* MAIN SCROLL AREA: flex-1 fills remaining width to the right of the sidebar */}
+        <main className="flex-1 px-4 md:px-8 py-6 space-y-6 overflow-y-auto scrollbar-hide">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-black text-gray-900 tracking-tight">
+                Dashboard
+              </h1>
+              <p className="text-sm text-gray-400 mt-0.5">
+                Welcome back, {adminName.split(" ")[0]} 👋
+              </p>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 text-xs text-gray-400 bg-gray-50 border border-gray-100 px-3 py-2 rounded-xl">
+              <Clock size={13} /> Last updated: just now
+            </div>
+          </div>
 
-          <input
-            type="password"
-            placeholder="Password"
-            value={password}
-            required
-            onChange={(e) => setPassword(e.target.value)}
-            className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-black outline-none"
-          />
+          {/* Top Stat Cards */}
+          <StatCards />
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-black text-white py-2 rounded-lg hover:bg-gray-800 transition duration-200 disabled:opacity-50"
-          >
-            {loading ? "Registering..." : "Register Admin"}
-          </button>
-        </form>
+          {/* Middle Row: Revenue & Top Restaurants */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            <div className="xl:col-span-2">
+              <RevenueOverview />
+            </div>
+            <div>
+              <TopRestaurants />
+            </div>
+          </div>
 
-        {message && (
-          <p className="mt-4 text-center text-sm font-medium">
-            {message}
-          </p>
-        )}
+          {/* Bottom Row: Recent Orders & Quick Actions */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
+            {/* Left side takes up 2 out of 3 columns on large screens */}
+            <div className="xl:col-span-2">
+              <RecentOrders />
+            </div>
+
+            {/* Right side takes up the remaining 1 column */}
+            <div className="space-y-4">
+              <QuickActions />
+              <PlatformHealth />
+            </div>
+          </div>
+        </main>
       </div>
     </div>
   );

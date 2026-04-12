@@ -4,8 +4,7 @@ import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
 
-//const BACKEND_URL = process.env.AUTH_SERVICE_URL!;
-const BACKEND_URL = "http://auth-service:5000";
+const BACKEND_URL = process.env.AUTH_SERVICE_URL!;
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   debug: true,

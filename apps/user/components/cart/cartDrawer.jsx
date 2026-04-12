@@ -1,7 +1,7 @@
 'use client';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShoppingBag, Trash2, Plus, Minus, ArrowRight } from 'lucide-react';
+import { X, ShoppingBag, Plus, Minus, ArrowRight, Tag } from 'lucide-react';
 import { useCart } from '@/context/CartContext';
 import Button from '@/components/ui/Button';
 
@@ -15,7 +15,8 @@ export default function CartDrawer() {
     deliveryFee, 
     addToCart, 
     removeFromCart,
-    clearCart 
+    clearCart,
+    appliedCoupon 
   } = useCart();
 
   return (
@@ -110,18 +111,39 @@ export default function CartDrawer() {
             {cartItems.length > 0 && (
               <div className="p-6 border-t bg-gray-50/50 space-y-4">
                 <div className="space-y-2">
+                  
+                  {/* Subtotal */}
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500 font-medium">Subtotal</span>
                     <span className="font-bold text-gray-900">₹{cartSubtotal.toFixed(0)}</span>
                   </div>
+
+                  {/* ── DYNAMIC COUPON DISPLAY ── */}
+                  {appliedCoupon && appliedCoupon.totalDiscount > 0 && (
+                    <div className="flex justify-between text-sm text-green-600">
+                      <span className="font-medium flex items-center gap-1">
+                        <Tag size={14} /> 
+                        {/* Show the typed code, or "Platform Offer" if it's an automatic discount */}
+                        {appliedCoupon.code ? `Code (${appliedCoupon.code})` : 'Platform Offer'}
+                      </span>
+                      <span className="font-bold">-₹{parseFloat(appliedCoupon.totalDiscount).toFixed(0)}</span>
+                    </div>
+                  )}
+
+                  {/* Delivery Fee */}
                   <div className="flex justify-between text-sm">
                     <span className="text-gray-500 font-medium">Delivery Fee</span>
-                    <span className="font-bold text-gray-900">₹{deliveryFee}</span>
+                    <span className="font-bold text-gray-900">
+                      {deliveryFee === 0 ? <span className="text-green-600 font-black">FREE</span> : `₹${deliveryFee}`}
+                    </span>
                   </div>
+                  
+                  {/* Total */}
                   <div className="flex justify-between text-xl pt-2 border-t border-gray-100">
                     <span className="font-black text-gray-900">Total</span>
                     <span className="font-black text-orange-500">₹{cartTotal.toFixed(0)}</span>
                   </div>
+                  
                 </div>
 
                 <Button className="w-full h-14 rounded-2xl text-lg gap-3" onClick={() => {/* Proceed to Checkout */}}>

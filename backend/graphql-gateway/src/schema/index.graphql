@@ -1,0 +1,21 @@
+# ============================================
+# ROOT QUERY & MUTATION TYPES
+# ============================================
+
+type Query {
+  # Health Check
+  health: String!
+  appVersion: String!
+}
+
+type Mutation {
+  # Placeholder - actual mutations are in extended types
+  _empty: String
+}
+
+type Subscription {
+  # For real-time updates
+  orderStatusUpdated(orderId: ID!): Order!
+  deliveryLocationUpdated(orderId: ID!): Order!
+  notificationReceived(userId: ID!): Notification!
+}

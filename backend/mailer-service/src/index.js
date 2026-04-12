@@ -1,23 +1,11 @@
 // src/index.js
 require("dotenv").config();
 const { Kafka } = require("kafkajs");
-const fs = require("fs");
 
 // Import Handlers
 const {handleAuthEvent} = require("./handlers/authHandler");
 const handleOrderEvent = require("./handlers/orderHandler");
 const handleInvoiceEvent = require("./handlers/invoiceHandler");
-
-const HEALTH_FILE = "/tmp/mailer-service.healthy";
-const TOPICS = ["auth-events", "send-invite-email", "order-events", "payment-events"];
-
-const markHealthy = () => {
-  try {
-    fs.writeFileSync(HEALTH_FILE, new Date().toISOString());
-  } catch (err) {
-    console.error("Failed to write mailer health file:", err.message);
-  }
-};
 
 const kafka = new Kafka({
   clientId: "mailer-service",
@@ -31,27 +19,22 @@ const start = async () => {
     console.log("⏳ Connecting to Kafka...");
     await consumer.connect();
     
-    for (const topic of TOPICS) {
-      await consumer.subscribe({
-        topic,
-        fromBeginning: false,
-      });
-      console.log(`📡 Mailer subscribed to ${topic}`);
-    }
+    // Subscribe to all relevant topics
+    await consumer.subscribe({ 
+      topics: ["auth-events", "order-events", "payment-events"], 
+      fromBeginning: true 
+    });
 
     console.log("Mailer Service Listening...");
-    markHealthy();
-    setInterval(markHealthy, 30000);
 
     await consumer.run({
       eachMessage: async ({ topic, partition, message }) => {
         const event = JSON.parse(message.value.toString());
-        console.log(` Received ${topic}: ${event.type || event.event || "unknown"}`);
+        console.log(` Received ${topic}: ${event.type}`);
 
         // ROUTING LOGIC
         switch (topic) {
           case "auth-events":
-          case "send-invite-email":
             await handleAuthEvent(event);
             break;
             
@@ -70,7 +53,6 @@ const start = async () => {
     });
   } catch (err) {
     console.error("❌ Kafka Consumer Error:", err);
-    process.exit(1);
   }
 };
 
