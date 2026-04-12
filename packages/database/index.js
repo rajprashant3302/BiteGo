@@ -1,6 +1,6 @@
 // packages/database/index.js
 
-const { PrismaClient } = require('@prisma/client');
+const { PrismaClient,Prisma } = require('@prisma/client');
 
 /**
  * Standard Prisma 5 initialization
@@ -15,4 +15,4 @@ const prisma = new PrismaClient({
   },
 });
 
-module.exports = { prisma, PrismaClient };
+module.exports = { prisma, PrismaClient,Decimal: Prisma.Decimal };
