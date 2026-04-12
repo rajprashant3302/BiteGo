@@ -2,8 +2,6 @@
 // GRAPHQL CONTEXT & CONFIG
 // ============================================
 
-const { Decimal } = require('@prisma/client/runtime/library');
-
 // Role-based authorization levels
 const ROLE_HIERARCHY = {
   SuperAdmin: 5,

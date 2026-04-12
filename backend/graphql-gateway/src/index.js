@@ -7,6 +7,8 @@ const { ApolloServer } = require('@apollo/server');
 const { startStandaloneServer } = require('@apollo/server/standalone');
 const { readFileSync } = require('fs');
 const { join } = require('path');
+const { prisma } = require('database');
+const { redisClient } = require('redis-client');
 
 // Import all resolvers
 const userResolvers = require('./resolvers/user.resolver.js');
@@ -17,6 +19,7 @@ const deliveryAndReviewResolvers = require('./resolvers/delivery.resolver.js');
 const couponAndSupportResolvers = require('./resolvers/coupon.resolver.js');
 const earningResolvers = require('./resolvers/earning.resolver.js');
 
+
 // ============================================
 // LOAD GRAPHQL SCHEMA FILES
 // ============================================
@@ -24,7 +27,7 @@ const earningResolvers = require('./resolvers/earning.resolver.js');
 const schemaDir = join(__dirname, 'schema');
 
 const loadSchemaFiles = () => {
-  const files = ['index.graphql', 'types.graphql', 'user.graphql', 'restaurant.graphql', 'order.graphql', 'payment.graphql', 'review.graphql', 'coupon.graphql'];
+  const files = ['index.graphql', 'types.graphql', 'user.graphql', 'restaurant.graphql', 'order.graphql', 'payment.graphql', 'review.graphql', 'coupon.graphql', 'earning.graphql'];
 
   return files.map((file) => readFileSync(join(schemaDir, file), 'utf-8')).join('\n');
 };
@@ -52,7 +55,7 @@ const resolvers = {
     // Coupon & Support Queries
     ...couponAndSupportResolvers.Query,
     // Earning Queries
-    ...earningResolvers.Query,
+    ...earningResolvers.Query
   },
   Mutation: {
     // User Mutations
@@ -68,13 +71,15 @@ const resolvers = {
     // Coupon & Support Mutations
     ...couponAndSupportResolvers.Mutation,
     // Earning Mutations
-    ...earningResolvers.Mutation,
+    ...earningResolvers.Mutation
   },
+
+}
+  // Subscription: {Query
   // Subscription: {
   //   // TODO: Add subscriptions for real-time updates
   //   ...deliveryAndReviewResolvers.Subscription,
   // },
-};
 
 // ============================================
 // CONTEXT BUILDER
@@ -82,14 +87,8 @@ const resolvers = {
 
 const buildContext = async ({ req }) => {
   try {
-    // Extract user info from Authorization header or token
     const authHeader = req.headers.authorization || '';
-
-    // TODO: Decode JWT token and extract user info
-    // For now, using placeholder
     const token = authHeader.replace('Bearer ', '');
-
-    // Parse user from token (placeholder)
     const userId = req.headers['x-user-id'];
     const userRole = req.headers['x-user-role'];
 
@@ -98,6 +97,8 @@ const buildContext = async ({ req }) => {
       userRole,
       token,
       req,
+      prisma,
+      redisClient
     };
   } catch (error) {
     console.error('Context builder error:', error);
@@ -112,11 +113,10 @@ const buildContext = async ({ req }) => {
 const server = new ApolloServer({
   typeDefs,
   resolvers,
-  context: buildContext,
+  // Note: I removed context: buildContext from here because in v4, 
+  // context belongs in startStandaloneServer (which you already did correctly below!)
   formatError: (error) => {
-    // Custom error formatting
     console.error('GraphQL Error:', error);
-
     return {
       message: error.message,
       code: error.extensions?.code,
@@ -124,24 +124,28 @@ const server = new ApolloServer({
     };
   },
   introspection: process.env.NODE_ENV !== 'production',
-  plugins: {
-    // Server startup hook
-    async serverWillStart() {
-      console.log('🚀 GraphQL Server starting...');
-    },
+  
+  // FIXED: Wrapped the plugin object in an array [ { ... } ]
+  plugins: [
+    {
+      // Server startup hook
+      async serverWillStart() {
+        console.log('🚀 GraphQL Server starting...');
+      },
 
-    // Request hook
-    async requestDidResolveOperation({ request, operation, context }) {
-      console.log(`📝 ${operation.operation} ${operation.name?.value || 'Anonymous'}`);
-    },
+      // Request hook
+      async requestDidResolveOperation({ request, operation, context }) {
+        console.log(`📝 ${operation.operation} ${operation.name?.value || 'Anonymous'}`);
+      },
 
-    // Error hook
-    async didEncounterErrors({ errors, operation, request, context }) {
-      for (const error of errors) {
-        console.error(`❌ GraphQL Error in ${operation.name?.value}:`, error.message);
-      }
-    },
-  },
+      // Error hook
+      async didEncounterErrors({ errors, operation, request, context }) {
+        for (const error of errors) {
+          console.error(`❌ GraphQL Error in ${operation.name?.value}:`, error.message);
+        }
+      },
+    }
+  ],
 });
 
 // ============================================
@@ -709,24 +713,3 @@ const GraphQLGatewayUtils = {
 };
 
 module.exports = { server, GraphQLGatewayUtils };
-//         request.http.headers.set('x-user-id', context.userId);
-//         request.http.headers.set('x-user-role', context.userRole);
-//       },
-//     });
-//   },
-// });
-
-// const server = new ApolloServer({ gateway });
-
-// (async () => {
-//   const { url } = await startStandaloneServer(server, {
-//     context: async ({ req }) => {
-//       // JWT Validation happens here
-//       const token = req.headers.authorization || '';
-//       const user = decodeToken(token); // Implement your JWT decode logic
-//       return { userId: user?.id, userRole: user?.role };
-//     },
-//     listen: { port: 4000 },
-//   });
-//   console.log(`🚀 Gateway ready at ${url}`);
-// })();
