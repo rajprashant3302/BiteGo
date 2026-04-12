@@ -7,25 +7,28 @@ services:
     volumes:
       - ./infrastructure/nginx/nginx.conf:/etc/nginx/nginx.conf
     depends_on:
-      - user-web
-      - admin-web
-      - vendor-web
-      - driver-web
-      - graphql-gateway
-      - auth-service
-      - order-service
-      - chat-service
-      - delivery-service
-      - payment-service
-      - search-service
-      - ai-ml-service
-      - promotion-service
+      user-web:
+        condition: service_started
+      admin-web:
+        condition: service_started
+      vendor-web:
+        condition: service_started
+      driver-web:
+        condition: service_started
+      order-service:
+        condition: service_started
+      search-service:
+        condition: service_started
+    restart: always
     networks:
       - bitego_network
 
   # ----------------- FRONTENDS -----------------
   user-web:
-    build: ./apps/user
+    build:
+      context: ./apps/user
+      args:
+        NEXT_PUBLIC_MAPBOX_TOKEN: ${NEXT_PUBLIC_MAPBOX_TOKEN}
     env_file:
       - .env
     expose:
@@ -136,6 +139,12 @@ services:
         condition: service_started
       kafka:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "test", "-f", "/tmp/mailer-service.healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
     networks:
       - bitego_network
 
@@ -153,38 +162,35 @@ services:
       - bitego_network
 
   ai-ml-service:
-    build:
-      context: ./backend/ai-ml-service
-      dockerfile: Dockerfile
-    container_name: bitego-ai-ml-service
-    ports:
-      - "8000:8000"
-    env_file:
-      - .env
-    depends_on:
-      redis:
-        condition: service_started
-      db:
-        condition: service_started
-      kafka:
-        condition: service_healthy
-    networks:
-      - bitego_network
-
-  promotion-service:
       build:
         context: .
-        dockerfile: backend/promotion-service/Dockerfile
-      env_file: .env
+        dockerfile: backend/ai-ml-service/Dockerfile
+      container_name: bitego-ai-ml-service
+      restart: unless-stopped
       ports:
-        - "5006:5006"
+        - "8000:8000"
+      environment:
+        - AI_ML_EVENTS_INDEX=user_events
+        - ES_HOST=http://elasticsearch:9200
+        - REDIS_URL=redis://redis:6379
+        - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      env_file:
+        - .env
       depends_on:
         db:
           condition: service_started
         redis:
           condition: service_started
+        elasticsearch:
+          condition: service_healthy
         kafka:
           condition: service_healthy
+      healthcheck:
+        test: ["CMD-SHELL", "curl -fsS http://localhost:8000/health || exit 1"]
+        interval: 20s
+        timeout: 10s
+        retries: 5
+        start_period: 40s
       networks:
         - bitego_network
 
@@ -195,11 +201,17 @@ services:
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
-      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m"
     ports:
       - "9200:9200"
     volumes: # <--- This must be at the same level as 'ports'
       - ./docker-data/elasticsearch:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
     depends_on:
       db:
         condition: service_started
@@ -219,7 +231,9 @@ services:
       db:
         condition: service_started
       elasticsearch:
-        condition: service_started
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
     networks:
       - bitego_network
 
@@ -267,6 +281,9 @@ services:
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+    volumes:
+      - zookeeper_data:/var/lib/zookeeper/data
+      - zookeeper_log:/var/lib/zookeeper/log
     networks:
       - bitego_network
 
@@ -280,16 +297,44 @@ services:
     environment:
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      KAFKA_LISTENERS: INTERNAL://0.0.0.0:9092,EXTERNAL://0.0.0.0:9094
-      KAFKA_ADVERTISED_LISTENERS: INTERNAL://kafka:9092,EXTERNAL://localhost:9094
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: INTERNAL:PLAINTEXT,EXTERNAL:PLAINTEXT
-      KAFKA_INTER_BROKER_LISTENER_NAME: INTERNAL
+
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+    volumes:
+      - kafka_data:/var/lib/kafka/data
     healthcheck:
       test: ["CMD", "bash", "-c", "nc -z localhost 9092"]
       interval: 10s
       timeout: 5s
       retries: 10
+    networks:
+      - bitego_network
+
+  kafka-init:
+    image: confluentinc/cp-kafka:7.5.3
+    depends_on:
+      kafka:
+        condition: service_healthy
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        set -euo pipefail
+        echo "[kafka-init] creating required topics..."
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic user-events --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic payment-success --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic payment-initiated --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic order-confirmed --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic order-assigned --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic order-status-changed --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic driver-location-updates --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic auth-events --partitions 1 --replication-factor 1
+        kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists --topic send-invite-email --partitions 1 --replication-factor 1
+        echo "[kafka-init] topic bootstrap complete."
+    restart: "no"
     networks:
       - bitego_network
 
@@ -309,3 +354,7 @@ networks:
   bitego_network:
     driver: bridge
 
+volumes:
+  kafka_data:
+  zookeeper_data:
+  zookeeper_log:

@@ -1,6 +1,10 @@
 fastapi
 uvicorn
-elasticsearch
+elasticsearch>=8.0.0,<9.0.0
 prisma
 pydantic
 python-dotenv
+kafka-python
+sentence-transformers
+torch
+prisma

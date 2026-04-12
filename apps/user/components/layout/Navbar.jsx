@@ -21,6 +21,7 @@ import { useRouter } from 'next/navigation';
 import Image from "next/image";
 
 export default function Navbar() {
+  const SEARCH_API_BASE = process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "/search-api";
   const router = useRouter();
   const dropdownRef = useRef(null);
   const [results, setResults] = useState([]);
@@ -34,7 +35,23 @@ export default function Navbar() {
     status
   } = useCart();
 
-  const SEARCH_URL=process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "http://localhost:8001"
+  const trackUserSearch = async (item) => {
+    try {
+      await fetch(`${SEARCH_API_BASE}/api/user-search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "USER_SEARCH",
+          query: searchQuery,
+          userId: user?.id || user?.email || "anonymous-user",
+          restaurantId: item.type === "RESTAURANT" ? item.id : null,
+          itemId: item.type !== "RESTAURANT" ? item.id : null,
+        }),
+      });
+    } catch (err) {
+      console.error("User search tracking failed:", err);
+    }
+  };
 
   // 1. SEARCH LOGIC: Fetch from Elasticsearch Service via FastAPI
   useEffect(() => {
@@ -49,7 +66,7 @@ export default function Navbar() {
       setShowDropdown(true);
 
       try {
-        const response = await fetch(`${SEARCH_URL}/search?q=${encodeURIComponent(searchQuery)}`);
+        const response = await fetch(`${SEARCH_API_BASE}/search?q=${encodeURIComponent(searchQuery)}`);
         const json = await response.json();
         setResults(json.data || []);
       } catch (err) {
@@ -62,7 +79,7 @@ export default function Navbar() {
 
     const debounceTimer = setTimeout(fetchResults, 300);
     return () => clearTimeout(debounceTimer);
-  }, [searchQuery]);
+  }, [searchQuery, SEARCH_API_BASE]);
 
   // 2. UI LOGIC: Close dropdown when clicking outside
   useEffect(() => {
@@ -137,9 +154,10 @@ export default function Navbar() {
                       results.map((item) => (
                         <button
                           key={item.id}
-                          onClick={() => {
+                          onClick={async () => {
                             setShowDropdown(false);
-                            const path = item.type === 'RESTAURANT' ? `/restaurants/${item.id}` : `/item/${item.id}`;
+                            await trackUserSearch(item);
+                            const path = item.type === 'RESTAURANT' ? `/restaurants/${item.id}` : `/menu/${item.id}`;
                             router.push(path);
                           }}
                           className="w-full flex items-center gap-4 p-3 hover:bg-orange-50/50 rounded-2xl transition-all duration-200 text-left group"

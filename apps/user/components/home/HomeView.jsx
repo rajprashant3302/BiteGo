@@ -1,12 +1,12 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import { Search, ChevronRight, Loader2, XCircle, MapPin } from 'lucide-react'; 
-import { cn } from '@/components/ui/cn';
+import { useState, useMemo, useEffect, useCallback } from 'react';
+import { ChevronRight, Loader2, XCircle, MapPin } from 'lucide-react'; // <-- Added MapPin
 import Button from '@/components/ui/Button';
 import Categories from './Categories';
 import DealsBanner from './DealsBanner';
 import RestaurantCard from './RestaurantCard';
+import CravingsShelf from './Cravingshelf';
 import { useCart } from '@/context/CartContext';
 import { useRouter } from "next/navigation";
 
@@ -21,37 +21,54 @@ export default function HomeView() {
   const [favorites, setFavorites] = useState([]);
   const [restaurants, setRestaurants] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [greeting, setGreeting] = useState('Good Morning');
 
   // --- NEW: Location State ---
   const [userLocation, setUserLocation] = useState("Fetching location...");
 
-  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
-  const DELIVERY_API_BASE = process.env.NEXT_PUBLIC_DELIVERY_SERVICE_URL || "http://localhost:5004"; // Your new service
+  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+  const DELIVERY_API_BASE = process.env.NEXT_PUBLIC_DELIVERY_SERVICE_URL || "/delivery-api";
   const router = useRouter();
 
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      try {
-        const res = await fetch(`${API_BASE}/api/restaurants`);
-        if (res.ok) {
-          const data = await res.json();
-          setRestaurants(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch restaurants:", err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  const fetchRestaurants = useCallback(async () => {
+    setIsLoading(true);
+    setLoadError('');
 
-    fetchInitialData();
+    try {
+      const res = await fetch(`${API_BASE}/api/restaurants`, {
+        cache: 'no-store',
+      });
+
+      if (!res.ok) {
+        throw new Error(`Restaurant request failed with status ${res.status}`);
+      }
+
+      const data = await res.json();
+      const normalizedRestaurants = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+          ? data.data
+          : [];
+
+      setRestaurants(normalizedRestaurants);
+    } catch (err) {
+      console.error("Failed to fetch restaurants:", err);
+      setRestaurants([]);
+      setLoadError('We could not load restaurants right now. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [API_BASE]);
+
+  useEffect(() => {
+    fetchRestaurants();
 
     const h = new Date().getHours();
     if (h < 12) setGreeting('Good Morning');
     else if (h < 18) setGreeting('Good Afternoon');
     else setGreeting('Good Evening');
-  }, [API_BASE]);
+  }, [fetchRestaurants]);
 
   // --- NEW: Geolocation & Sync Logic ---
   useEffect(() => {
@@ -97,7 +114,7 @@ export default function HomeView() {
     } else {
       setUserLocation("Geolocation not supported");
     }
-  }, [user?.id]);
+  }, [DELIVERY_API_BASE, user?.id]);
 
   const filteredRestaurants = useMemo(() => {
     return restaurants.filter(r => {
@@ -160,6 +177,7 @@ export default function HomeView() {
       </section>
 
       <DealsBanner />
+      <CravingsShelf userId={user?.id} />
 
       <section>
         <div className="flex items-center justify-between mb-8">
@@ -175,6 +193,20 @@ export default function HomeView() {
           <div className="flex flex-col items-center justify-center py-20">
             <Loader2 className="animate-spin text-orange-500 mb-4" size={44} />
             <p className="text-gray-400 font-black animate-pulse uppercase tracking-widest">Finding the best bites...</p>
+          </div>
+        ) : loadError ? (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            <XCircle size={64} className="text-red-200 mb-6" />
+            <h3 className="text-2xl font-black text-gray-900">Restaurants Unavailable</h3>
+            <p className="text-gray-500 mt-2 font-medium max-w-sm">
+              {loadError}
+            </p>
+            <Button
+              onClick={fetchRestaurants}
+              className="mt-8 bg-orange-500 hover:bg-orange-600 text-white font-black px-8 py-4 rounded-2xl shadow-lg"
+            >
+              Retry
+            </Button>
           </div>
         ) : filteredRestaurants.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 mt-4">
@@ -197,7 +229,7 @@ export default function HomeView() {
             <XCircle size={64} className="text-gray-200 mb-6" />
             <h3 className="text-2xl font-black text-gray-900">No Bites Found</h3>
             <p className="text-gray-500 mt-2 font-medium max-w-xs">
-              We couldn't find anything matching "{searchQuery}" in {activeCategory}.
+              We couldn&apos;t find anything matching &quot;{searchQuery}&quot; in {activeCategory}.
             </p>
             <Button
               onClick={() => { setSearchQuery(''); setActiveCategory('All'); }}

@@ -1,3 +1,16 @@
+<<<<<<< HEAD
+{
+  "dependencies": {
+    "@prisma/client": "^5.17.0",
+    "framer-motion": "^12.34.3",
+    "lucide-react": "^0.575.0",
+    "next-auth": "^4.24.13"
+  },
+  "devDependencies": {
+    "prisma": "^5.17.0"
+  }
+}
+=======
 {
   "dependencies": {
     "@prisma/client": "^6.19.0",
@@ -9,3 +22,4 @@
     "prisma": "^6.19.0"
   }
 }
+>>>>>>> origin/main

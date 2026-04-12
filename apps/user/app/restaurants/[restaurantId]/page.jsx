@@ -9,6 +9,7 @@ import {
 import { Loader2, ShoppingCart } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { useCart } from '@/context/CartContext';
+import { resolveImageUrl, withFallbackSrc } from '@/lib/image';
 
 export default function RestaurantDetailsPage() {
   const { restaurantId } = useParams();
@@ -17,7 +18,8 @@ export default function RestaurantDetailsPage() {
   const [menuData, setMenuData] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
+  const API_BASE = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+  const SEARCH_SERVICE_BASE =process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "/search-api";
 
   useEffect(() => {
     const fetchMenu = async () => {
@@ -37,18 +39,13 @@ export default function RestaurantDetailsPage() {
   }, [restaurantId, API_BASE]);
 
   // Extract unique active offers to show at the top
- const uniqueOffers = useMemo(() => {
-  const map = new Map();
-
-  menuData.forEach(item => {
-    const offer = item.ActiveOffer;
-    if (offer && offer.title) {
-      map.set(offer.title, offer);
-    }
-  });
-
-  return Array.from(map.values());
-}, [menuData]);
+  const uniqueOffers = useMemo(() => {
+    return menuData
+      .map(item => item.ActiveOffer)
+      .filter((offer, index, self) => 
+        offer && self.findIndex(t => t.title === offer.title) === index
+      );
+  }, [menuData]);
 
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
@@ -137,7 +134,47 @@ export default function RestaurantDetailsPage() {
 }
 
 function MenuCard({ item }) {
-  const { addToCart, removeFromCart, cartItems } = useCart();
+  const { addToCart, removeFromCart, cartItems, user } = useCart();
+  const SEARCH_SERVICE_BASE =
+  process.env.NEXT_PUBLIC_SEARCH_SERVICE_URL || "/search-api";
+  const ORDER_SERVICE_BASE =
+    process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api";
+  const fallbackImage = "/placeholder-food.svg";
+  const imageUrl = resolveImageUrl(item?.ItemImageURL, {
+    fallback: fallbackImage,
+    baseUrl: ORDER_SERVICE_BASE,
+  });
+  const handleImageError = withFallbackSrc(fallbackImage);
+  const handleAddToCart = async () => {
+    console.log("🔥 ADD TO CART CLICKED", item);
+  
+    addToCart(item);
+  
+    try {
+      console.log("📤 Sending Kafka event");
+  
+      await fetch(`${SEARCH_SERVICE_BASE}/api/add-to-cart`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          event: "ADD_TO_CART",
+          restaurantId: item.RestaurantID,
+          itemId: item.ItemID,
+          quantity: quantity + 1,
+          userId: user?.id || user?.email || "anonymous-user",
+        }),
+      });
+  
+      console.log("✅ Kafka event sent");
+  
+    } catch (err) {
+      console.error("❌ Kafka error", err);
+    }
+  };
+  
+  
   const cartItem = cartItems.find(i => i.ItemID === item.ItemID);
   const quantity = cartItem ? cartItem.quantity : 0;
   const isOutOfStock = item.AvailableQuantity <= 0;
@@ -152,7 +189,11 @@ function MenuCard({ item }) {
     <div className={`bg-white rounded-[2rem] p-5 border-2 border-slate-50 flex items-center gap-6 transition-all duration-300 relative ${isOutOfStock ? 'opacity-75 grayscale-[0.5]' : 'hover:border-orange-500/20 hover:shadow-2xl'}`}>
       
       <div className="relative w-32 h-32 md:w-36 md:h-36 flex-shrink-0 overflow-hidden rounded-[1.5rem] bg-slate-100 shadow-inner">
-        <img src={item.ItemImageURL || "/placeholder-food.png"} className="w-full h-full object-cover" />
+        <img
+          src={imageUrl}
+          className="w-full h-full object-cover"
+          onError={handleImageError}
+        />
         
         {/* --- DYNAMIC OFFER TAG --- */}
         {hasOffer && !isOutOfStock && discountLabel && (
@@ -208,14 +249,14 @@ function MenuCard({ item }) {
                 <button onClick={() => removeFromCart(item.ItemID)} className="w-10 h-10 flex items-center justify-center text-white rounded-xl font-black text-xl">-</button>
                 <span className="px-4 font-black text-white">{quantity}</span>
                 <button 
-                  onClick={() => addToCart(item)}
+                  onClick={handleAddToCart}
                   disabled={quantity >= item.AvailableQuantity}
                   className="w-10 h-10 flex items-center justify-center text-white rounded-xl font-black text-xl disabled:opacity-50"
                 >+</button>
               </div>
             ) : (
               <Button 
-                onClick={() => addToCart(item)}
+                onClick={handleAddToCart}
                 disabled={isOutOfStock}
                 size="icon" 
                 className={`w-12 h-12 rounded-2xl shadow-lg transition-all active:scale-90 ${isOutOfStock ? 'bg-slate-200 text-slate-400' : 'bg-orange-500 text-white shadow-orange-200'}`}

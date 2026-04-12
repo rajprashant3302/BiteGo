@@ -132,6 +132,8 @@ model User {
   IsPremium     Boolean         @default(false)
   IsActive      Boolean         @default(true)
   CreatedAt     DateTime        @default(now())
+  longTermVector   String?   @db.Text
+  lastVectorUpdate DateTime? @default(now())
 
   ZoneID String?
   zone   ServiceZone? @relation(fields: [ZoneID], references: [ZoneID])

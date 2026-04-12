@@ -51,9 +51,8 @@ export default function EditAddressMapPage() {
       if (status === "authenticated" && session?.user?.id) {
         try {
           // Adjust this URL to match whether you used Option 1 or 2 from earlier!
-          const apiUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL 
-            ? `${process.env.NEXT_PUBLIC_AUTH_SERVICE_URL}/api/auth/addresses/${session.user.id}`
-            : `http://localhost:5000/api/auth/addresses/${session.user.id}`;
+          const authBase = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "/auth-api";
+          const apiUrl = `${authBase}/api/auth/addresses/${session.user.id}`;
             
           const response = await fetch(apiUrl);
           if (response.ok) {
@@ -195,10 +194,8 @@ export default function EditAddressMapPage() {
   const handleUpdate = async () => {
     setIsSaving(true);
     try {
-      // Adjust this URL to match whether you used Option 1 or 2 from earlier!
-      const apiUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL 
-        ? `${process.env.NEXT_PUBLIC_AUTH_SERVICE_URL}/api/auth/addresses/${params.id}`
-        : `http://localhost:5000/api/auth/addresses/${params.id}`;
+      const authBase = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "/auth-api";
+      const apiUrl = `${authBase}/api/auth/addresses/${params.id}`;
 
       await fetch(apiUrl, {
         method: "PUT",

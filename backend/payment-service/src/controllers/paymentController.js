@@ -4,10 +4,20 @@ const crypto = require('crypto');
 const { prisma } = require("database");
 const { publishEvent } = require("../kafka/producer"); 
 
-const razorpay = new Razorpay({
-  key_id: process.env.RAZORPAY_KEY_ID,
-  key_secret: process.env.RAZORPAY_KEY_SECRET,
-});
+const hasRazorpayConfig = Boolean(
+  process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
+);
+
+const getRazorpayClient = () => {
+  if (!hasRazorpayConfig) {
+    throw new Error("Online payments are not configured. Missing Razorpay keys.");
+  }
+
+  return new Razorpay({
+    key_id: process.env.RAZORPAY_KEY_ID,
+    key_secret: process.env.RAZORPAY_KEY_SECRET,
+  });
+};
 
 // POST /api/payments/create-razorpay-order
 exports.createRazorpayOrder = async (req, res) => {
@@ -20,6 +30,7 @@ exports.createRazorpayOrder = async (req, res) => {
       receipt: paymentId, 
     };
 
+    const razorpay = getRazorpayClient();
     const order = await razorpay.orders.create(options);
     res.status(200).json({ success: true, order });
   } catch (error) {
@@ -32,6 +43,13 @@ exports.createRazorpayOrder = async (req, res) => {
 exports.verifyPayment = async (req, res) => {
   try {
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, paymentId, orderId } = req.body;
+
+    if (!hasRazorpayConfig) {
+      return res.status(503).json({
+        success: false,
+        error: "Online payments are not configured. Missing Razorpay keys.",
+      });
+    }
 
     const sign = razorpay_order_id + "|" + razorpay_payment_id;
     const expectedSign = crypto

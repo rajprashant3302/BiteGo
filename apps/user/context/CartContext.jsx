@@ -17,6 +17,7 @@ export function CartProvider({ children }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [deliveryMode, setDeliveryMode] = useState('quick');
   const [showAddToast, setShowAddToast] = useState(false);
+  const [isOrdered, setIsOrdered] = useState(false);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [paymentMode, setPaymentMode] = useState('online');
   const [useWallet, setUseWallet] = useState(false);
@@ -25,9 +26,11 @@ export function CartProvider({ children }) {
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState(null);
   const [couponError, setCouponError] = useState('');
+
   const [userProfile, setUserProfile] = useState(null);
 
-  // ── 1. INITIAL LOAD ───────────────────────────────────────────
+
+  // ── 1. INITIAL LOAD (Cart & Default Address) ───────────────────
   useEffect(() => {
     if (status === 'unauthenticated') {
       setIsLoading(false);
@@ -38,7 +41,7 @@ export function CartProvider({ children }) {
 
     const loadInitialData = async () => {
       try {
-        const [cartRes, addrRes, profileRes] = await Promise.all([
+        const [cartRes, addrRes ,profileRes] = await Promise.all([
           fetch(`${API_BASE}/api/cart/${session.user.email}`),
           fetch(`${AUTH_BASE}/api/auth/addresses/${session.user.id}`),
           fetch(`${AUTH_BASE}/api/auth/profile/${session.user.id}`)

@@ -37,9 +37,8 @@ function RegisterForm() {
     setStatus({ loading: true, error: null, success: null });
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL 
-        ? `${process.env.NEXT_PUBLIC_AUTH_SERVICE_URL}/api/auth/register`
-        : "http://localhost:5000/api/auth/register";
+      const authBase = process.env.NEXT_PUBLIC_AUTH_SERVICE_URL || "/auth-api";
+      const apiUrl = `${authBase}/api/auth/register`;
 
       const response = await fetch(apiUrl, {
         method: "POST",

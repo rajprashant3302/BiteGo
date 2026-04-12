@@ -15,7 +15,7 @@ export default function OrdersPage() {
 
   useEffect(() => {
     if (status === 'authenticated' && user?.id) {
-      fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL}/api/orders/user/${user.id}`)
+      fetch(`${process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "/order-api"}/api/orders/user/${user.id}`)
         .then(res => res.json())
         .then(data => {
           setOrders(data);
