@@ -12,8 +12,7 @@ const {
   handleResolverError,
 } = require('../utils/validation');
 
-const { prisma } = require('database');
-const { Decimal } = require('@prisma/client/runtime/library');
+const { prisma, Decimal } = require('database');
 
 const restaurantResolvers = {
   Query: {

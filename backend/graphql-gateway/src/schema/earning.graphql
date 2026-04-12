@@ -164,6 +164,35 @@ type PaginatedBonuses {
   hasMore: Boolean!
 }
 
+type RestaurantOwnerEarningReport {
+  restaurantOwnerId: ID!
+  totalEarnings: Decimal!
+  totalOrders: Int!
+  avgOrderEarning: Decimal!
+}
+
+type DeliveryPartnerEarningReport {
+  deliveryPartnerId: ID!
+  totalEarnings: Decimal!
+  totalDeliveries: Int!
+  avgDeliveryEarning: Decimal!
+}
+
+type PlatformEarningReport {
+  totalRevenue: Decimal!
+  restaurantEarnings: Decimal!
+  deliveryEarnings: Decimal!
+  platformEarnings: Decimal!
+  totalOrders: Int!
+  platformCommissionPercentage: Decimal!
+}
+
+type WithdrawalResponse {
+  success: Boolean!
+  message: String!
+  amount: Decimal!
+}
+
 # ============================================
 # ENUMS
 # ============================================
@@ -265,8 +294,9 @@ extend type Query {
   
   # Earnings Breakdown
   getEarningsBreakdown: EarningBreakdown!
-  getRestaurantEarnings(restaurantId: ID!, startDate: DateTime, endDate: DateTime): EarningStats!
-  getDeliveryPartnerEarnings(deliveryPartnerId: ID!, startDate: DateTime, endDate: DateTime): EarningStats!
+  getRestaurantOwnerEarnings(ownerId: ID!, startDate: DateTime, endDate: DateTime): RestaurantOwnerEarningReport!
+  getDeliveryPartnerEarnings(deliveryPartnerId: ID!, startDate: DateTime, endDate: DateTime): DeliveryPartnerEarningReport!
+  getPlatformEarnings(startDate: DateTime, endDate: DateTime): PlatformEarningReport!
 }
 
 type PayoutStats {
@@ -312,6 +342,7 @@ extend type Mutation {
   approveWithdrawal(withdrawalId: ID!): WithdrawalRequest!
   rejectWithdrawal(withdrawalId: ID!, reason: String!): WithdrawalRequest!
   processWithdrawal(withdrawalId: ID!, transactionId: String!): WithdrawalRequest!
+  withdrawEarnings(userId: ID!, amount: Decimal!, bankAccountId: ID): WithdrawalResponse!
   
   # Commission Policies
   createCommissionPolicy(input: CreateCommissionPolicyInput!): CommissionPolicy!

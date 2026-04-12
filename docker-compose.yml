@@ -19,6 +19,8 @@ services:
         condition: service_started
       search-service:
         condition: service_started
+      promotion-service:
+        condition: service_started
     restart: always
     networks:
       - bitego_network
@@ -68,12 +70,18 @@ services:
     build: 
       context: .
       dockerfile: backend/graphql-gateway/Dockerfile
+    ports:
+      - "4000:4000"
     expose:
       - "4000"
     env_file: .env
     depends_on:
-      - auth-service
-      - order-service
+      auth-service:
+        condition: service_started
+      order-service:
+        condition: service_started
+      kafka:
+        condition: service_healthy
     networks:
       - bitego_network
 
@@ -236,6 +244,23 @@ services:
         condition: service_healthy
     networks:
       - bitego_network
+  
+  promotion-service:
+      build:
+        context: .
+        dockerfile: backend/promotion-service/Dockerfile
+      env_file: .env
+      ports:
+        - "5006:5006"
+      depends_on:
+        db:
+          condition: service_started
+        redis:
+          condition: service_started
+        kafka:
+          condition: service_healthy
+      networks:
+        - bitego_network
 
   delivery-service:
     build:

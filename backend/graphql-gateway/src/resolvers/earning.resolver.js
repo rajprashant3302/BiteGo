@@ -9,8 +9,7 @@ const {
   handleResolverError,
 } = require('../utils/validation');
 
-const { prisma } = require('database');
-const { Decimal } = require('@prisma/client/runtime/library');
+const { prisma, Decimal } = require('database');
 
 const earningResolvers = {
   Query: {
@@ -19,8 +18,7 @@ const earningResolvers = {
      */
     async getRestaurantOwnerEarnings(
       _,
-      { ownerId, startDate, endDate },
-      { userId, userRole }
+      { ownerId, startDate, endDate }
     ) {
       try {
         // TODO: Add authorization check
@@ -69,8 +67,7 @@ const earningResolvers = {
      */
     async getDeliveryPartnerEarnings(
       _,
-      { deliveryPartnerId, startDate, endDate },
-      { userId, userRole }
+      { deliveryPartnerId, startDate, endDate }
     ) {
       try {
         // TODO: Add authorization check
@@ -119,8 +116,7 @@ const earningResolvers = {
      */
     async getPlatformEarnings(
       _,
-      { startDate, endDate },
-      { userId, userRole }
+      { startDate, endDate }
     ) {
       try {
         // TODO: Add admin authorization check
@@ -186,7 +182,7 @@ const earningResolvers = {
      */
     async withdrawEarnings(
       _,
-      { userId, amount, bankAccountId },
+      { userId, amount },
       { userId: authUserId }
     ) {
       try {
