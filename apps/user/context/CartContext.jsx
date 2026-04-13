@@ -17,7 +17,7 @@ export function CartProvider({ children }) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [deliveryMode, setDeliveryMode] = useState('quick');
   const [showAddToast, setShowAddToast] = useState(false);
-  const [isOrdered, setIsOrdered] = useState(false);
+  const [copiedCode, setCopiedCode] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState(null);
   const [paymentMode, setPaymentMode] = useState('online');
   const [useWallet, setUseWallet] = useState(false);
@@ -28,6 +28,18 @@ export function CartProvider({ children }) {
   const [couponError, setCouponError] = useState('');
 
   const [userProfile, setUserProfile] = useState(null);
+
+
+  const copyCode = async (code) => {
+  try {
+    await navigator.clipboard.writeText(code);
+    setCopiedCode(code);
+
+    setTimeout(() => setCopiedCode(null), 2000);
+  } catch (err) {
+    console.error('Copy failed', err);
+  }
+};
 
 
   // ── 1. INITIAL LOAD (Cart & Default Address) ───────────────────
@@ -236,7 +248,8 @@ export function CartProvider({ children }) {
       deliveryMode, setDeliveryMode, showAddToast, setShowAddToast,
       selectedAddress, setSelectedAddress, paymentMode, setPaymentMode,
       useWallet, setUseWallet, amountFromWallet,
-      couponInput, setCouponInput, appliedCoupon, couponError, couponDiscountAmount, handleApplyCoupon, removeCoupon
+      couponInput, setCouponInput, appliedCoupon, couponError, couponDiscountAmount, handleApplyCoupon, removeCoupon,copyCode,copiedCode
+
     }}>
       {children}
     </CartContext.Provider>

@@ -1,15 +1,15 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { 
-  Search, 
-  ShoppingBag, 
-  User, 
-  ChevronDown, 
-  Loader2, 
-  Utensils, 
-  Star, 
-  MapPin 
+import {
+  Search,
+  ShoppingBag,
+  User,
+  ChevronDown,
+  Loader2,
+  Utensils,
+  Star,
+  MapPin
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/components/ui/cn';
@@ -68,6 +68,7 @@ export default function Navbar() {
       try {
         const response = await fetch(`${SEARCH_API_BASE}/search?q=${encodeURIComponent(searchQuery)}`);
         const json = await response.json();
+        console.log("DataTransfer",json);
         setResults(json.data || []);
       } catch (err) {
         console.error("Search API Error:", err);
@@ -157,7 +158,10 @@ export default function Navbar() {
                           onClick={async () => {
                             setShowDropdown(false);
                             await trackUserSearch(item);
-                            const path = item.type === 'RESTAURANT' ? `/restaurants/${item.id}` : `/menu/${item.id}`;
+                            const path =
+                              item.type === 'RESTAURANT'
+                                ? `/restaurants/${item.id}`
+                                : `/restaurants/${item.restaurantId}?highlight=${item.id}`;
                             router.push(path);
                           }}
                           className="w-full flex items-center gap-4 p-3 hover:bg-orange-50/50 rounded-2xl transition-all duration-200 text-left group"
@@ -167,13 +171,13 @@ export default function Navbar() {
                             "h-12 w-12 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
                             item.type === 'RESTAURANT' ? "bg-orange-100 text-orange-600" : "bg-blue-50 text-blue-600"
                           )}>
-                            {item.type === 'RESTAURANT' ? <Utensils size={20} /> : <Image 
-                                src={item.imageUrl} 
-                                alt={item.name} 
-                                width={48}
-                                height={48}
-                                className=" object-cover rounded-xl" 
-                              />}
+                            {item.type === 'RESTAURANT' ? <Utensils size={20} /> : <Image
+                              src={item.imageUrl}
+                              alt={item.name}
+                              width={48}
+                              height={48}
+                              className=" object-cover rounded-xl"
+                            />}
                           </div>
 
                           <div className="flex-1 min-w-0">
@@ -185,7 +189,7 @@ export default function Navbar() {
                                 <span className="text-xs font-black text-gray-900 pl-2 tracking-tighter">₹{item.price}</span>
                               )}
                             </div>
-                            
+
                             <div className="flex items-center gap-2 mt-0.5">
                               {item.type === 'RESTAURANT' ? (
                                 <>
@@ -232,13 +236,13 @@ export default function Navbar() {
 
         {/* --- Right Side Actions --- */}
         <div className="flex items-center gap-2 sm:gap-4 shrink-0">
-          
+
           {/* User Profile */}
           <div className="flex items-center">
             {status === 'loading' ? (
               <div className="h-10 w-10 rounded-2xl bg-gray-100 animate-pulse" />
             ) : status === 'authenticated' ? (
-              <button 
+              <button
                 onClick={() => router.push('/settings')}
                 className="flex items-center gap-2 p-1 pr-3 hover:bg-gray-50 rounded-2xl transition-all group border border-transparent hover:border-gray-100"
               >
@@ -278,8 +282,8 @@ export default function Navbar() {
                 {cartCount > 0 && (
                   <motion.div
                     key={cartCount}
-                    initial={{ scale: 0, y: 5 }} 
-                    animate={{ scale: 1, y: 0 }} 
+                    initial={{ scale: 0, y: 5 }}
+                    animate={{ scale: 1, y: 0 }}
                     exit={{ scale: 0 }}
                     className="absolute -top-2.5 -right-2.5 w-5 h-5 bg-orange-500 text-white text-[9px] font-black rounded-lg flex items-center justify-center border-2 border-gray-900"
                   >

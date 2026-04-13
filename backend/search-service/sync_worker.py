@@ -102,6 +102,8 @@ async def sync_data():
                     "description": item.Description,
                     "category": getattr(item.restaurant, 'CategoryName', 'Food') if item.restaurant else 'Food',
                     "imageUrl": item.ItemImageURL,
+                    "restaurantId": item.RestaurantID,
+                    "restaurant_name": item.restaurant.Name if item.restaurant else "",
                     "item_vector": vector
                 }
             })
