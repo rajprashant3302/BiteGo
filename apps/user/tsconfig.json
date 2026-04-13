@@ -30,6 +30,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts"
-, "app/reset-password/page.jsx", "app/login/page.jsx", "app/main/components/Home01.jsx", "app/home/page.jsx", "app/main/components/LayoutClient.jsx", "app/page.jsx", "app/layout.jsx"  ],
+, "app/reset-password/page.jsx", "app/login/page.jsx", "app/main/components/Home01.jsx", "app/home/page.jsx", "app/main/components/LayoutClient.jsx", "app/page.jsx", "app/layout.jsx", "app/menu/[id]/page.jsx", "components/home/DealsBanner.jsx"  ],
   "exclude": ["node_modules"]
 }

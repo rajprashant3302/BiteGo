@@ -1,9 +1,9 @@
 "use client";
 import { useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
-import { LogOut, X, LayoutDashboard, Users, UtensilsCrossed, ShoppingBag, TrendingUp, UserPlus, Mail, Settings } from "lucide-react";
+import { LogOut, X, LayoutDashboard, Users,Tag, UtensilsCrossed, ShoppingBag, TrendingUp, UserPlus, Mail, Settings } from "lucide-react";
 
-const ICONS = [LayoutDashboard, Users, UtensilsCrossed, ShoppingBag, TrendingUp, UserPlus, Mail, Settings];
+const ICONS = [LayoutDashboard, Users, UtensilsCrossed, ShoppingBag,Tag, TrendingUp, UserPlus, Mail, Settings];
 
 interface SidebarProps {
   sidebarOpen: boolean;
