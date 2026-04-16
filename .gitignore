@@ -28,7 +28,6 @@ Thumbs.db
 coverage/
 
 # Kafka / DB data (if volumes later)
-data/
 docker-data/
 node_modules/
 .generated/
