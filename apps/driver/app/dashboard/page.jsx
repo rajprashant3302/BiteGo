@@ -16,6 +16,7 @@ const DriverMap = dynamic(() => import('@/components/DriverMap'), {
 
 const DELIVERY_SOCKET_URL = process.env.NEXT_PUBLIC_DELIVERY_SERVICE_URL || "http://localhost:5004";
 const ORDER_SERVICE_URL = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost";
 
 // ── OTP Component ──
 function OtpInput({ onVerify, correctOtp }) {
@@ -131,9 +132,17 @@ export default function DriverDashboard() {
     const savedOnline = localStorage.getItem("bitego_driver_online") === "true";
     
     // Auto-connect if they were already online before refreshing!
-    const newSocket = io(DELIVERY_SOCKET_URL, { 
+    const newSocket = io(BACKEND_URL, { 
       autoConnect: savedOnline, 
-      transports: ['websocket', 'polling'] 
+      transports: ['websocket', 'polling'],
+      
+      // 🚀 Added Connection Resilience Settings
+      path: '/svc/delivery/socket.io', // Ensure backend is configured to use this path!
+      auth: { token: session?.accessToken || driverId }, 
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000
     });
 
     newSocket.on("connect", () => {
@@ -219,31 +228,60 @@ export default function DriverDashboard() {
   };
 
   const updateStatus = async (newStatus) => {
-    await fetch(`${DELIVERY_SOCKET_URL}/api/driver/${driverId}/orders/${activeOrder.orderId}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus })
-    });
-    
-    const updated = { ...activeOrder, status: newStatus };
-    setActiveOrder(updated);
-    localStorage.setItem("bitego_active_order", JSON.stringify(updated)); // 🔥 PERSIST NEW STATUS
+    try {
+        // 🔥 Grab the token from the session
+        const token = session?.user?.accessToken;
+        console.log(`Updating status to ${newStatus} for Order ${activeOrder.orderId} with token:`, token);
+
+        const response = await fetch(`${BACKEND_URL}/svc/delivery/driver/${driverId}/orders/${activeOrder.orderId}/status`, {
+            method: 'PATCH',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Server returned ${response.status}: ${errorText}`);
+        }
+        
+        const updated = { ...activeOrder, status: newStatus };
+        setActiveOrder(updated);
+        localStorage.setItem("bitego_active_order", JSON.stringify(updated));
+        
+    } catch (error) {
+        console.error("Status update failed:", error);
+        toast.error("Failed to update status. Check console.");
+        throw error;
+    }
   };
 
-  const handleOtpVerified = () => {
-    updateStatus('Delivered');
-    setIsDelivered(true);
-    setShowOtpPanel(false);
-    toast.success("Successfully Delivered!");
-    
-    // 🔥 WIPE STORAGE ON COMPLETION
-    localStorage.removeItem("bitego_active_order"); 
-    
-    setTimeout(() => {
-        setActiveOrder(null);
-        setOrderDetails(null);
-        setIsDelivered(false);
-    }, 5000);
+const handleOtpVerified = async () => {
+    try {
+        // 1. Await the backend update to ensure network connection is alive
+        await updateStatus('Delivered');
+        
+        // 2. Update UI
+        setIsDelivered(true);
+        setShowOtpPanel(false);
+        toast.success("Successfully Delivered!");
+        
+        // 3. WIPE LOCAL STORAGE & COOKIES
+        localStorage.removeItem("bitego_active_order"); 
+        document.cookie = "bitego_active_order=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+        
+        // 4. Reset UI after a delay
+        setTimeout(() => {
+            setActiveOrder(null);
+            setOrderDetails(null);
+            setIsDelivered(false);
+        }, 5000);
+
+    } catch (error) {
+        toast.error("Network error! Please try again.");
+    }
   };
 
   if (status === "loading") return <div className="min-h-screen bg-[#0d0f14] flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={48} /></div>;

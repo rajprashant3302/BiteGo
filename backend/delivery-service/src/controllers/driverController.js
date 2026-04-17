@@ -1,5 +1,6 @@
 const { publishEvent } = require("../kafka/producer");
 const { getIo } = require("../socket/socket");
+const {prisma} = require("database");
 
 exports.updateOrderStatus = async (req, res) => {
     try {
