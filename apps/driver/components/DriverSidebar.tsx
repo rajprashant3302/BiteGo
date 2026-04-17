@@ -4,25 +4,25 @@ import { useRouter, usePathname } from "next/navigation";
 import { X, LogOut, LayoutDashboard, Map, ClipboardList, Wallet, Bell, Settings } from "lucide-react";
 import { signOut } from "next-auth/react";
 
-// interface SidebarProps {
-//   sidebarOpen: boolean;
-//   setSidebarOpen: (open: boolean) => void;
-// }
+interface SidebarProps {
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
+}
 
 /* ✅ ROUTES (SCALABLE) */
 const DRIVER_ROUTES = [
-  { label: "Dashboard", href: "/driver", icon: LayoutDashboard },
-  { label: "Live Orders", href: "/driver/orders", icon: ClipboardList },
-  { label: "Map / Navigation", href: "/driver/map", icon: Map },
-  { label: "Earnings", href: "/driver/earnings", icon: Wallet },
-  { label: "Notifications", href: "/driver/notifications", icon: Bell },
-  { label: "Settings", href: "/driver/settings", icon: Settings },
+  { label: "Dashboard", href: "/dash", icon: LayoutDashboard },
+  { label: "Live Orders", href: "/orders", icon: ClipboardList },
+  { label: "Map / Navigation", href: "/map", icon: Map },
+  { label: "Earnings", href: "/earnings", icon: Wallet },
+  { label: "Notifications", href: "/notifications", icon: Bell },
+  { label: "Settings", href: "/settings", icon: Settings },
 ];
 
 export default function DriverSidebar({
   sidebarOpen,
   setSidebarOpen
-}) {
+}: SidebarProps) {
 
   const router = useRouter();
   const pathname = usePathname();
@@ -48,16 +48,7 @@ export default function DriverSidebar({
       `}>
 
         {/* HEADER */}
-        <div className="px-6 py-5 border-b border-gray-100 flex items-center justify-between">
-          
-          <div className="flex flex-col leading-none">
-            <span className="font-black text-xl text-gray-900">
-              Bite<span className="text-orange-500">Go</span>
-            </span>
-            <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest mt-1">
-              Driver Panel
-            </span>
-          </div>
+        <div className="px-6 border-gray-100 flex items-center justify-between">
 
           {/* CLOSE BTN MOBILE */}
           <button

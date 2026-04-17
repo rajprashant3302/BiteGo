@@ -27,16 +27,7 @@ app.get("/", (req, res) => {
 app.use("/driver", driverRoutes);
 app.use('/api/location', locationRoutes);
 
-// Health check route
-app.get("/driver", async (req, res) => {
-  try {
-    console.log("Healthy Check...");
-    res.status(200).json({ status: "ok" }); // Added this so the request actually completes!
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Database error" });
-  }
-});
+
 
 (async () => {
   try {

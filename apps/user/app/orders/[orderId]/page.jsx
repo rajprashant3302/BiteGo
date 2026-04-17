@@ -220,20 +220,39 @@ export default function OrderTracking() {
         )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Delivery Partner</p>
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 font-black">{order.deliveryPartner?.user?.Name[0] || '?'}</div>
+          <div className="bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 flex flex-col justify-between">
+            <div>
+              <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6">Delivery Partner</p>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-slate-100 rounded-2xl flex items-center justify-center text-slate-400 font-black">
+                    {order.deliveryPartner?.user?.Name[0] || '?'}
+                  </div>
+                  <div>
+                    <p className="font-black text-slate-900">{order.deliveryPartner?.user?.Name || 'Assigning...'}</p>
+                    <p className="text-xs font-bold text-slate-400">4.8 ★ Professional</p>
+                  </div>
+                </div>
+                {order.deliveryPartner?.user?.Phone && (
+                  <a href={`tel:${order.deliveryPartner.user.Phone}`} className="w-12 h-12 bg-orange-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-orange-200">
+                    <Phone size={20} />
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* ── NEW: Delivery OTP Display ── */}
+            {order.DeliveryOTP && !['Delivered', 'Cancelled'].includes(order.OrderStatus) && (
+              <div className="mt-8 bg-slate-900 rounded-[1.5rem] p-5 flex items-center justify-between shadow-lg shadow-slate-200">
                 <div>
-                  <p className="font-black text-slate-900">{order.deliveryPartner?.user?.Name || 'Assigning...'}</p>
-                  <p className="text-xs font-bold text-slate-400">4.8 ★ Professional</p>
+                  <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">Delivery OTP</p>
+                  <p className="text-xs font-bold text-slate-300">Share to receive order</p>
+                </div>
+                <div className="bg-slate-800 text-white font-black text-2xl tracking-[0.25em] pl-5 pr-3 py-2 rounded-xl border border-slate-700">
+                  {order.DeliveryOTP}
                 </div>
               </div>
-              {order.deliveryPartner?.user?.Phone && (
-                <a href={`tel:${order.deliveryPartner.user.Phone}`} className="w-12 h-12 bg-orange-500 text-white rounded-2xl flex items-center justify-center shadow-lg shadow-orange-200"><Phone size={20} /></a>
-              )}
-            </div>
+            )}
           </div>
           
           {/* ── Bill Summary (Zomato Style) ── */}

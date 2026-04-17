@@ -56,7 +56,7 @@ exports.placeOrder = async (req, res) => {
       // A. Check Dynamic JSON Rules
       if (offer.TargetSegment) {
         const rules = typeof offer.TargetSegment === 'string' ? JSON.parse(offer.TargetSegment) : offer.TargetSegment;
-        
+
         if (rules.is_premium && !userProfile.IsPremium) return false;
         if (rules.role && rules.role !== userProfile.Role) return false;
         if (rules.zoneId && rules.zoneId !== userProfile.ZoneID) return false;
@@ -76,7 +76,7 @@ exports.placeOrder = async (req, res) => {
     const processedItems = items.map((cartItem) => {
       const dbItem = dbItems.find((d) => d.ItemID === (cartItem.id || cartItem.ItemID));
       if (!dbItem) throw new Error(`Item no longer available`);
-      
+
       const itemTotal = Number(dbItem.Price) * cartItem.quantity;
       subtotal += itemTotal;
 
@@ -96,15 +96,15 @@ exports.placeOrder = async (req, res) => {
     for (const offer of potentialOffers) {
       // Validate Min Order Value
       if (offer.MinOrderValue && currentTotal < Number(offer.MinOrderValue)) continue;
-      
+
       // Validate Global Redemption Limits
       if (offer.TotalRedemptionLimit && offer.CurrentRedemptionCount >= offer.TotalRedemptionLimit) continue;
 
       if (offer.RewardType === 'FreeDelivery') {
         isFreeDelivery = true;
         appliedOffers.push({ offer, appliedAmount: 0 });
-      } 
-      
+      }
+
       else if (offer.RewardType === 'DiscountOnOrder') {
         let discount = 0;
         if (offer.DiscountType === 'Percentage') {
@@ -115,7 +115,7 @@ exports.placeOrder = async (req, res) => {
         }
 
         discount = Math.min(discount, currentTotal); // Prevent negative cart
-        
+
         if (discount > 0) {
           currentTotal -= discount;
           totalDiscount += discount;
@@ -124,7 +124,7 @@ exports.placeOrder = async (req, res) => {
       }
 
       // If an offer isn't stackable, halt evaluating further deals
-      if (!offer.IsStackable) break; 
+      if (!offer.IsStackable) break;
     }
 
     // Add Delivery Fee if FreeDelivery wasn't granted and subtotal is below threshold
@@ -159,6 +159,8 @@ exports.placeOrder = async (req, res) => {
 
         const remainingAmount = finalPayable - walletDeduction;
 
+        const deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
+
         // B. Create the Base Order
         const order = await tx.orders.create({
           data: {
@@ -166,6 +168,7 @@ exports.placeOrder = async (req, res) => {
             RestaurantID: restaurantId,
             AddressID: addressId,
             TotalAmount: finalPayable,
+            DeliveryOTP: deliveryOtp,
             OrderStatus: "Placed",
             items: { create: processedItems },
           },
@@ -181,9 +184,9 @@ exports.placeOrder = async (req, res) => {
               RewardDelivered: true,
               RedemptionStatus: "Success",
               OrderID: order.OrderID,
-              Metadata: { 
+              Metadata: {
                 discountApplied: applied.appliedAmount,
-                rewardType: applied.offer.RewardType 
+                rewardType: applied.offer.RewardType
               }
             }
           });
@@ -280,7 +283,7 @@ exports.placeOrder = async (req, res) => {
       remainingAmount: result.remainingAmount,
       paymentId: result.secondaryPayment ? result.secondaryPayment.PaymentID : null,
     });
-    
+
   } catch (error) {
     console.error("Order Error:", error);
     res.status(500).json({ success: false, error: error.message });
@@ -543,6 +546,7 @@ exports.getOrders = async (req, res) => {
       },
       orderBy: { OrderDateTime: "desc" },
     });
+    
 
     res.status(200).json(orders);
   } catch (error) {
@@ -601,19 +605,19 @@ exports.getVendorOrders = async (req, res) => {
       restaurantName: order.restaurant?.Name || "",
       customer: order.user
         ? {
-            userId: order.user.UserID,
-            name: order.user.Name,
-            email: order.user.Email,
-            phone: order.user.Phone,
-          }
+          userId: order.user.UserID,
+          name: order.user.Name,
+          email: order.user.Email,
+          phone: order.user.Phone,
+        }
         : null,
       address: order.address
         ? {
-            addressId: order.address.AddressID,
-            addressLine: order.address.AddressLine,
-            city: order.address.City,
-            pincode: order.address.Pincode,
-          }
+          addressId: order.address.AddressID,
+          addressLine: order.address.AddressLine,
+          city: order.address.City,
+          pincode: order.address.Pincode,
+        }
         : null,
       items: order.items.map((orderItem) => ({
         itemId: orderItem.ItemID,
@@ -709,6 +713,9 @@ exports.getOrderById = async (req, res) => {
         items: { include: { item: true } },
         address: true,
         payments: true,
+        user: { 
+          select: { Name: true, Phone: true } 
+        },
         deliveryPartner: {
           include: {
             user: { select: { Name: true, Phone: true, ProfilePicURL: true } },
