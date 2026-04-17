@@ -49,19 +49,19 @@ const emitVendorOrderPayload = async (io, orderId) => {
     restaurantName: order.restaurant?.Name || "",
     customer: order.user
       ? {
-          userId: order.user.UserID,
-          name: order.user.Name,
-          email: order.user.Email,
-          phone: order.user.Phone,
-        }
+        userId: order.user.UserID,
+        name: order.user.Name,
+        email: order.user.Email,
+        phone: order.user.Phone,
+      }
       : null,
     address: order.address
       ? {
-          addressId: order.address.AddressID,
-          addressLine: order.address.AddressLine,
-          city: order.address.City,
-          pincode: order.address.Pincode,
-        }
+        addressId: order.address.AddressID,
+        addressLine: order.address.AddressLine,
+        city: order.address.City,
+        pincode: order.address.Pincode,
+      }
       : null,
     items: order.items.map((orderItem) => ({
       itemId: orderItem.ItemID,
@@ -162,8 +162,7 @@ const connectConsumer = async (io) => {
           if (eventData.status === "Delivered") {
             const deliveryEarning = 45.0;
 
-            await prisma.$transaction(async (tx) => {
-              const finalOrder = await tx.orders.update({
+              const finalOrder = await prisma.orders.update({
                 where: { OrderID: eventData.orderId },
                 data: {
                   OrderStatus: "Delivered",
@@ -171,19 +170,19 @@ const connectConsumer = async (io) => {
                 },
               });
 
-              await tx.user.update({
-                where: { UserID: eventData.driverId },
-                data: { WalletBalance: { increment: deliveryEarning } },
-              });
+              // await tx.user.update({
+              //   where: { UserID: eventData.driverId },
+              //   data: { WalletBalance: { increment: deliveryEarning } },
+              // });
 
-              await tx.walletTransaction.create({
-                data: {
-                  UserID: eventData.driverId,
-                  Amount: deliveryEarning,
-                  TransactionType: "Credit",
-                  Description: `Delivery Earning for Order #${eventData.orderId.slice(-6)}`,
-                },
-              });
+              // await tx.walletTransaction.create({
+              //   data: {
+              //     UserID: eventData.driverId,
+              //     Amount: deliveryEarning,
+              //     TransactionType: "Credit",
+              //     Description: `Delivery Earning for Order #${eventData.orderId.slice(-6)}`,
+              //   },
+              // });
 
               if (io) {
                 io.to(`user_${finalOrder.UserID}`).emit("order_status_update", {
@@ -196,8 +195,7 @@ const connectConsumer = async (io) => {
                   orderId: finalOrder.OrderID,
                   status: "Delivered",
                 });
-              }
-            });
+              };
 
             console.log(`💰 Driver ${eventData.driverId} earned ₹${deliveryEarning} for Order ${eventData.orderId}`);
           } else {

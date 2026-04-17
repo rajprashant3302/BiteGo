@@ -34,3 +34,57 @@ exports.updateOrderStatus = async (req, res) => {
         res.status(500).json({ error: "Internal server error" });
     }
 };
+
+
+// Express example
+
+exports.getOrders = async (req, res) => {
+  try {
+    const userId = req.user.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: "User ID missing in token" });
+    }
+
+    // ✅ 1. Find Delivery Partner
+    const partner = await prisma.deliveryPartner.findUnique({
+      where: { UserID: userId },
+    });
+
+    if (!partner) {
+      return res.status(404).json({ error: "Driver not found" });
+    }
+
+    // ✅ 2. Fetch ACTIVE orders only
+    const orders = await prisma.orders.findMany({
+      where: {
+        DeliveryPartnerID: partner.DeliveryPartnerID,
+
+        // 🔥 IMPORTANT FILTER
+        OrderStatus: {
+          in: ["Preparing", "Prepared", "PickedUp"], // only active
+        },
+      },
+
+      orderBy: {
+        OrderDateTime: "desc",
+      },
+
+      include: {
+        address: true,
+        restaurant: true,
+        items: {
+          include: {
+            item: true,
+          },
+        },
+      },
+    });
+
+    return res.json(orders);
+
+  } catch (error) {
+    console.error("GET ORDERS ERROR:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};

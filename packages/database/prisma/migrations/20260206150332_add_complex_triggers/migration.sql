@@ -150,7 +150,13 @@ BEGIN
         -- 3. SETTLE DRIVER (COD vs ONLINE)
         IF NEW."DeliveryPartnerID" IS NOT NULL THEN
             SELECT dp."UserID" INTO driver_user_id FROM "DeliveryPartner" dp WHERE dp."DeliveryPartnerID" = NEW."DeliveryPartnerID";
-            SELECT "PaymentMethod" INTO pay_method FROM "Payment" WHERE "PaymentID" = NEW."PaymentID";
+            
+            -- 🔥 FIX IS HERE: Query Payment by OrderID instead of PaymentID
+            SELECT "PaymentMethod" INTO pay_method 
+            FROM "Payment" 
+            WHERE "OrderID" = NEW."OrderID" 
+            ORDER BY "PaymentDate" DESC 
+            LIMIT 1;
 
             IF pay_method = 'COD' THEN
                 -- Driver has cash. Debit the difference.
