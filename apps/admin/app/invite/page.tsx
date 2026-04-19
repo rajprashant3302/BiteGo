@@ -47,7 +47,7 @@ export default function InviteUser() {
     }
 
     try {
-      const res = await fetch(`${BACKEND_URL}/api/auth/invite/send`, {
+      const res = await fetch(`${BACKEND_URL}/svc/auth/api/auth/invite/send`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
