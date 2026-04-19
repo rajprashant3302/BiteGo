@@ -74,16 +74,20 @@ input UpdateDeliveryPartnerInput {
   licenseNumber: String
 }
 
+# 🔥 UPDATED: Split text fields
 input AddReviewInput {
   ratingRestaurant: Int
   ratingDelivery: Int
-  reviewText: String
+  reviewTextRestaurant: String
+  reviewTextDeliveryPartner: String
 }
 
+# 🔥 UPDATED: Split text fields
 input UpdateReviewInput {
   ratingRestaurant: Int
   ratingDelivery: Int
-  reviewText: String
+  reviewTextRestaurant: String
+  reviewTextDeliveryPartner: String
 }
 
 # ============================================
@@ -100,8 +104,8 @@ type DeliveryStats {
 
 type RestaurantRating {
   restaurantId: ID!
-  avgRestaurantRating: Decimal!
-  avgDeliveryRating: Decimal!
+  avgRestaurantRating: Float! # Using Float for standard GraphQL compatibility
+  avgDeliveryRating: Float!
   totalReviews: Int!
   ratingDistribution: RatingDistribution!
 }

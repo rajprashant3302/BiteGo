@@ -13,6 +13,7 @@ const menuRoutes = require("./routes/menuRoutes");
 const resRoutes = require("./routes/resRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
+const reviewAggregator = require("./workers/review-aggregator.worker"); // Start the review aggregator worker
 
 const app = express();
 const PORT = process.env.PORT || 5001;

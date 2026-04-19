@@ -1,8 +1,8 @@
 'use client';
 
 import { motion } from 'framer-motion';
-// ── FIX 1: Added 'Tag' to the lucide-react imports ──
-import { MapPin, Phone, ChevronRight, CheckCircle2, Clock, Wallet, FileText, Navigation, ArrowLeft, Tag } from 'lucide-react';
+// ── FIX 1: Added 'Tag' and 'Star' to the lucide-react imports ──
+import { MapPin, Phone, ChevronRight, CheckCircle2, Clock, Wallet, FileText, Navigation, ArrowLeft, Tag, Star } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import jsPDF from 'jspdf';
@@ -144,23 +144,50 @@ export default function OrderTracking() {
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <motion.div
-            whileTap={{ scale: 0.98 }}
-            onClick={() => router.push(`/orders/${orderId}/track`)}
-            className="bg-orange-500 p-6 rounded-[2.5rem] shadow-xl shadow-orange-200 cursor-pointer group relative overflow-hidden h-48"
-          >
-            <div className="absolute -right-4 -bottom-4 opacity-20 text-white group-hover:scale-110 transition-transform">
-              <Navigation size={120} />
-            </div>
-            <div className="relative z-10 flex flex-col justify-between h-full">
-              <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white"><Navigation size={24} /></div>
-              <div>
-                <h3 className="text-xl font-black text-white italic">Track Live</h3>
-                <p className="text-orange-100 text-xs font-bold uppercase tracking-widest mt-1">View Delivery Boy</p>
+          
+          {/* ── TRACK LIVE: Only show if NOT Delivered or Cancelled ── */}
+          {!['Delivered', 'Cancelled'].includes(order.OrderStatus) && (
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push(`/orders/${orderId}/track`)}
+              className="bg-orange-500 p-6 rounded-[2.5rem] shadow-xl shadow-orange-200 cursor-pointer group relative overflow-hidden h-48"
+            >
+              <div className="absolute -right-4 -bottom-4 opacity-20 text-white group-hover:scale-110 transition-transform">
+                <Navigation size={120} />
               </div>
-            </div>
-          </motion.div>
+              <div className="relative z-10 flex flex-col justify-between h-full">
+                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white"><Navigation size={24} /></div>
+                <div>
+                  <h3 className="text-xl font-black text-white italic">Track Live</h3>
+                  <p className="text-orange-100 text-xs font-bold uppercase tracking-widest mt-1">View Delivery Boy</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
 
+          {/* ── RATE ORDER: Only show if Delivered AND hasn't been reviewed yet ── */}
+          {order.OrderStatus === 'Delivered' && (!order.reviews || order.reviews.length === 0) && (
+            <motion.div
+              whileTap={{ scale: 0.98 }}
+              onClick={() => router.push(`/orders/${orderId}/review`)}
+              className="bg-gradient-to-br from-orange-400 to-[#FF651D] p-6 rounded-[2.5rem] shadow-xl shadow-orange-200 cursor-pointer group relative overflow-hidden h-48"
+            >
+              <div className="absolute -right-4 -bottom-4 opacity-20 text-white group-hover:scale-110 transition-transform">
+                <Star size={120} className="fill-white" />
+              </div>
+              <div className="relative z-10 flex flex-col justify-between h-full">
+                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center text-white">
+                  <Star size={24} className="fill-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black text-white italic">Rate Order</h3>
+                  <p className="text-orange-100 text-xs font-bold uppercase tracking-widest mt-1">How was your experience?</p>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ── INVOICE BUTTON ── */}
           <motion.div
             whileTap={{ scale: 0.98 }}
             onClick={handleDownloadInvoice}
@@ -181,6 +208,62 @@ export default function OrderTracking() {
               </div>
             </div>
           </motion.div>
+
+          {/* ── PUBLISHED REVIEW DISPLAY (Slides in replacing Rate Order button) ── */}
+          {order.OrderStatus === 'Delivered' && order.reviews && order.reviews.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="col-span-1 md:col-span-2 bg-white p-8 rounded-[2.5rem] shadow-xl border border-slate-100 h-auto"
+            >
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black text-slate-900 italic">Your Review</h3>
+                <span className="text-[10px] font-black uppercase tracking-widest text-green-500 bg-green-50 px-3 py-1.5 rounded-xl border border-green-100">
+                  Published
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Restaurant Section */}
+                <div className="bg-orange-50/50 p-6 rounded-3xl border border-orange-100/50">
+                  <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-3">Food & Restaurant</p>
+                  <div className="flex gap-1 mb-3">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <Star
+                        key={star}
+                        size={18}
+                        className={star <= order.reviews[0].RatingRestaurant ? "fill-orange-500 text-orange-500" : "fill-slate-200 text-slate-200"}
+                      />
+                    ))}
+                  </div>
+                  {order.reviews[0].ReviewTextRestaurant ? (
+                    <p className="text-sm font-medium text-slate-700 italic">"{order.reviews[0].ReviewTextRestaurant}"</p>
+                  ) : (
+                    <p className="text-sm font-medium text-slate-400 italic">No comment provided.</p>
+                  )}
+                </div>
+
+                {/* Delivery Section */}
+                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Delivery Partner</p>
+                  <div className="flex gap-1 mb-3">
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <Star
+                        key={star}
+                        size={18}
+                        className={star <= order.reviews[0].RatingDelivery ? "fill-orange-500 text-orange-500" : "fill-slate-200 text-slate-200"}
+                      />
+                    ))}
+                  </div>
+                  {order.reviews[0].ReviewTextDeliveryPartner ? (
+                    <p className="text-sm font-medium text-slate-700 italic">"{order.reviews[0].ReviewTextDeliveryPartner}"</p>
+                  ) : (
+                    <p className="text-sm font-medium text-slate-400 italic">No comment provided.</p>
+                  )}
+                </div>
+              </div>
+            </motion.div>
+          )}
         </div>
 
         <section className="bg-white rounded-[3rem] p-10 shadow-2xl shadow-slate-200/50 border border-slate-100 mb-8 relative overflow-hidden">

@@ -25,6 +25,7 @@ import {
   FiVolume2,
   FiVolumeX,
   FiX,
+  FiStar
 } from "react-icons/fi";
 
 type DashboardLayoutProps = {
@@ -116,10 +117,11 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     [session]
   );
 
-  const pageTitle = useMemo(() => {
+const pageTitle = useMemo(() => {
     if (pathname === "/dashboard") return "Overview";
     if (pathname.startsWith("/partner/restaurants")) return "Restaurants";
     if (pathname.startsWith("/dashboard/orders")) return "Orders";
+    if (pathname.startsWith("/dashboard/reviews")) return "Feedback"; // <--- ADD THIS LINE
     if (pathname.startsWith("/dashboard/analytics")) return "Analytics";
     if (pathname.startsWith("/dashboard/payouts")) return "Payouts";
     return "Dashboard";
@@ -144,6 +146,12 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
       icon: <FiShoppingBag size={18} />,
       match: (p) => p.startsWith("/dashboard/orders"),
     },
+    {
+      label: "Reviews",
+      href: "/dashboard/reviews",
+      icon: <FiStar size={18} />,
+      match: (p) => p.startsWith("/dashboard/reviews"),
+    },    
     {
       label: "Analytics",
       href: "/dashboard/analytics",

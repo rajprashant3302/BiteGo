@@ -432,9 +432,9 @@ const deliveryAndReviewResolvers = {
     /**
      * Add review
      */
-    async addReview(_, { orderId, input }, { userId, userRole }) {
+async addReview(_, { orderId, input }, { userId, userRole }) {
       try {
-        const { ratingRestaurant, ratingDelivery, reviewText } = input;
+        const { ratingRestaurant, ratingDelivery, reviewTextRestaurant, reviewTextDeliveryPartner } = input;
 
         if (ratingRestaurant) {
           validateRating(ratingRestaurant);
@@ -451,11 +451,14 @@ const deliveryAndReviewResolvers = {
           throw new NotFoundError('Order', orderId);
         }
 
+        // 🔥 THE FIX: Fallback to the Order's UserID if the auth context drops it
+        const finalUserId = userId || order.UserID;
+
         // Check if review already exists
         const existingReview = await prisma.review.findFirst({
           where: {
             OrderID: orderId,
-            UserID: userId,
+            UserID: finalUserId,
           },
         });
 
@@ -466,11 +469,12 @@ const deliveryAndReviewResolvers = {
         const review = await prisma.review.create({
           data: {
             OrderID: orderId,
-            UserID: userId,
+            UserID: finalUserId,
             RestaurantID: order.RestaurantID,
             RatingRestaurant: ratingRestaurant,
             RatingDelivery: ratingDelivery,
-            ReviewText: reviewText,
+            ReviewTextRestaurant: reviewTextRestaurant,
+            ReviewTextDeliveryPartner: reviewTextDeliveryPartner,
           },
           include: {
             user: true,

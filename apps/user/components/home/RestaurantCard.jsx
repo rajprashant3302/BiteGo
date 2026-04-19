@@ -16,8 +16,10 @@ export default function RestaurantCard({ restaurant, isFavorite, onToggleFavorit
   const [index, setIndex] = useState(0);
   const items = restaurant.menuItems || [];
   
-  // Display rating as 1 decimal place
-  const rating = restaurant.Rating ? parseFloat(restaurant.Rating).toFixed(1) : "4.5";
+  // ── UPDATED: Dynamic Live Rating Logic ──
+  const rawRating = parseFloat(restaurant.Rating);
+  const isNew = !rawRating || rawRating === 0;
+  const displayRating = isNew ? "NEW" : rawRating.toFixed(1);
 
   // Logic to find the best current offer for the badge
   const activeOffer = restaurant.offers?.find(o => o.IsActive) || null;
@@ -51,6 +53,7 @@ export default function RestaurantCard({ restaurant, isFavorite, onToggleFavorit
       }),
     });
   };
+  
   const handleViewMenu = async (e) => {
     e.stopPropagation();
 
@@ -70,7 +73,7 @@ export default function RestaurantCard({ restaurant, isFavorite, onToggleFavorit
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      onClick={handleClick} //for event handling
+      onClick={handleClick} 
       className="group flex flex-col bg-white rounded-[32px] overflow-hidden border-2 border-gray-100/50 shadow-sm hover:shadow-2xl hover:border-orange-500/10 transition-all duration-500 h-full relative"
     >
       <div className="relative h-56 overflow-hidden bg-gray-100">
@@ -113,16 +116,17 @@ export default function RestaurantCard({ restaurant, isFavorite, onToggleFavorit
           </div>
         </div>
 
-        {/* Floating Rating & Favorite */}
-        <div className="absolute top-4 right-16">
+        {/* ── UPDATED: Floating Live Rating ── */}
+        <div className="absolute top-4 right-16 z-20">
           <div className="bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-xl text-[10px] font-black text-gray-900 flex items-center gap-1.5 shadow-sm border border-gray-100">
-            <Star size={13} className="fill-orange-500 text-orange-500" /> {rating}
+            {!isNew && <Star size={13} className="fill-orange-500 text-orange-500" />} 
+            {displayRating}
           </div>
         </div>
 
         <button
           onClick={(e) => onToggleFavorite(e, restaurant.RestaurantID)}
-          className="absolute top-4 right-4 bg-white/90 backdrop-blur-md p-2.5 rounded-full shadow-lg hover:scale-110 transition-transform active:scale-95 z-10"
+          className="absolute top-4 right-4 bg-white/90 backdrop-blur-md p-2.5 rounded-full shadow-lg hover:scale-110 transition-transform active:scale-95 z-20"
         >
           <Heart size={20} className={cn('transition-colors', isFavorite ? 'fill-red-500 text-red-500' : 'text-gray-400')} />
         </button>
