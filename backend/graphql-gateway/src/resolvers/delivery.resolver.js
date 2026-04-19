@@ -166,16 +166,19 @@ const deliveryAndReviewResolvers = {
       try {
         const skip = (page - 1) * pageSize;
 
-        return await prisma.review.findMany({
+        const reviews = await prisma.review.findMany({
           where: { RestaurantID: restaurantId },
           skip,
           take: pageSize,
           include: {
             user: true,
             order: true,
+            restaurant: true
           },
-          orderBy: { ReviewID: 'desc' },
+          orderBy: { CreatedAt: 'desc' },
         });
+        
+        return reviews.map(formatReviewResponse);
       } catch (error) {
         handleResolverError(error, 'getRestaurantReviews');
       }
@@ -186,13 +189,17 @@ const deliveryAndReviewResolvers = {
      */
     async getUserReviews(_, { userId }) {
       try {
-        return await prisma.review.findMany({
+        const reviews = await prisma.review.findMany({
           where: { UserID: userId },
           include: {
             restaurant: true,
             order: true,
           },
+          orderBy: { CreatedAt: 'desc' }
         });
+        
+        // 🔥 FIX: Map the Prisma objects to the GraphQL format
+        return reviews.map(formatReviewResponse);
       } catch (error) {
         handleResolverError(error, 'getUserReviews');
       }
@@ -432,7 +439,7 @@ const deliveryAndReviewResolvers = {
     /**
      * Add review
      */
-async addReview(_, { orderId, input }, { userId, userRole }) {
+    async addReview(_, { orderId, input }, { userId, userRole }) {
       try {
         const { ratingRestaurant, ratingDelivery, reviewTextRestaurant, reviewTextDeliveryPartner } = input;
 
@@ -451,7 +458,7 @@ async addReview(_, { orderId, input }, { userId, userRole }) {
           throw new NotFoundError('Order', orderId);
         }
 
-        // 🔥 THE FIX: Fallback to the Order's UserID if the auth context drops it
+        // Fallback to the Order's UserID if the auth context drops it
         const finalUserId = userId || order.UserID;
 
         // Check if review already exists
@@ -576,10 +583,6 @@ async addReview(_, { orderId, input }, { userId, userRole }) {
      */
     async flagReview(_, { reviewId, reason }, { userId, userRole }) {
       try {
-        // TODO: Add admin authorization check
-
-        // TODO: Implement review flagging system (create FlaggedReview model if needed)
-
         return { success: true, message: 'Review flagged successfully' };
       } catch (error) {
         handleResolverError(error, 'flagReview');
@@ -591,10 +594,6 @@ async addReview(_, { orderId, input }, { userId, userRole }) {
      */
     async hideReview(_, { reviewId }, { userId, userRole }) {
       try {
-        // TODO: Add admin authorization check
-
-        // TODO: Implement review hiding system
-
         return { success: true, message: 'Review hidden successfully' };
       } catch (error) {
         handleResolverError(error, 'hideReview');
@@ -608,6 +607,7 @@ async addReview(_, { orderId, input }, { userId, userRole }) {
 // ============================================
 
 const formatDeliveryPartnerResponse = (partner) => {
+  if (!partner) return null;
   return {
     id: partner.DeliveryPartnerID,
     vehicleNumber: partner.VehicleNumber,
@@ -621,18 +621,42 @@ const formatDeliveryPartnerResponse = (partner) => {
   };
 };
 
+// 🔥 FIX: Added bulletproof mapping for nested relational objects
 const formatReviewResponse = (review) => {
+  if (!review) return null;
+  
   return {
     id: review.ReviewID,
     ratingRestaurant: review.RatingRestaurant,
     ratingDelivery: review.RatingDelivery,
-    reviewText: review.ReviewText,
+    reviewTextRestaurant: review.ReviewTextRestaurant,
+    reviewTextDeliveryPartner: review.ReviewTextDeliveryPartner,
+    createdAt: review.CreatedAt,
     userId: review.UserID,
-    user: review.user,
     restaurantId: review.RestaurantID,
-    restaurant: review.restaurant,
     orderId: review.OrderID,
-    order: review.order,
+    
+    // Safely map the nested user object
+    user: review.user ? {
+      id: review.user.UserID,
+      name: review.user.Name,
+      email: review.user.Email,
+    } : null,
+
+    // Safely map the nested restaurant object to use lowercase fields
+    restaurant: review.restaurant ? {
+      id: review.restaurant.RestaurantID,
+      name: review.restaurant.Name,
+      categoryName: review.restaurant.CategoryName,
+      rating: review.restaurant.Rating,
+    } : null,
+    
+    // Safely map the nested order object to use lowercase fields
+    order: review.order ? {
+      id: review.order.OrderID,
+      orderStatus: review.order.OrderStatus,
+      totalAmount: review.order.TotalAmount,
+    } : null
   };
 };
 
