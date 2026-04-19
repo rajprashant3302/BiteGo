@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter, usePathname } from "next/navigation";
-import { X, LogOut, LayoutDashboard, Map, ClipboardList, Wallet, Bell, Settings } from "lucide-react";
+import { X, LogOut, LayoutDashboard, Map, ClipboardList, Wallet, Bell, Settings, Star } from "lucide-react";
 import { signOut } from "next-auth/react";
 
 interface SidebarProps {
@@ -14,6 +14,7 @@ const DRIVER_ROUTES = [
   { label: "Dashboard", href: "/dash", icon: LayoutDashboard },
   { label: "Live Orders", href: "/orders", icon: ClipboardList },
   { label: "Map / Navigation", href: "/map", icon: Map },
+  { label: "Performance", href: "/performance", icon: Star },
   { label: "Earnings", href: "/earnings", icon: Wallet },
   { label: "Notifications", href: "/notifications", icon: Bell },
   { label: "Settings", href: "/settings", icon: Settings },

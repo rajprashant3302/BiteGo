@@ -719,8 +719,10 @@ exports.getOrderById = async (req, res) => {
         deliveryPartner: {
           include: {
             user: { select: { Name: true, Phone: true, ProfilePicURL: true } },
+
           },
         },
+        reviews: true,
       },
     });
 

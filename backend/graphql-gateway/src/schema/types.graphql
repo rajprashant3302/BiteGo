@@ -227,11 +227,21 @@ type Review {
   id: ID!
   ratingRestaurant: Int
   ratingDelivery: Int
-  reviewText: String
+  reviewTextRestaurant: String         # Updated
+  reviewTextDeliveryPartner: String    # Updated
+  createdAt: DateTime!                 # Added
+  updatedAt: DateTime!                 # Added
+  
+  # Relations
   userId: ID!
   user: User!
+  
   restaurantId: ID!
   restaurant: Restaurant!
+  
+  deliveryPartnerId: ID                # Added (Optional)
+  deliveryPartner: DeliveryPartner
+  
   orderId: ID!
   order: Order!
 }
