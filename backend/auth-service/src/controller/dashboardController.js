@@ -9,8 +9,7 @@ function toNumber(value) {
 }
 
 function normalizeOrderStatus(status) {
-  if (!status) return "Unknown";
-  return status;
+  return status || "Unknown";
 }
 
 function getRestaurantStatus(restaurant, orderCount) {
@@ -36,7 +35,7 @@ function buildTrend(orders) {
   orders.forEach((order) => {
     const key = new Date(order.OrderDateTime).toISOString().slice(0, 10);
     if (daily.has(key)) {
-      daily.set(key, daily.get(key) + toNumber(order.TotalAmount));
+      daily.set(key, daily.get(key) + toNumber(order.RestaurantEarning || order.TotalAmount));
     }
   });
 
@@ -56,6 +55,16 @@ async function getVendorDataset(userId) {
             include: {
               user: { select: { Name: true } },
               payments: true,
+              items: {
+                include: {
+                  item: { select: { ItemName: true } },
+                },
+              },
+              reviews: {
+                include: {
+                  user: { select: { Name: true } },
+                },
+              },
             },
             orderBy: { OrderDateTime: "desc" },
           },
@@ -70,6 +79,7 @@ async function getVendorDataset(userId) {
       restaurants: [],
       orders: [],
       payouts: [],
+      reviews: [],
       summary: {
         totalRestaurants: 0,
         openRestaurants: 0,
@@ -106,36 +116,20 @@ async function getVendorDataset(userId) {
     }))
   );
 
-  const allPayments = allOrders.flatMap((order) =>
-    order.payments.map((payment) => ({
-      ...payment,
-      restaurantName: order.restaurantName,
-    }))
-  );
-
   const totalRevenue = allOrders.reduce(
-    (sum, order) => sum + toNumber(order.TotalAmount),
+    (sum, order) => sum + toNumber(order.RestaurantEarning || order.TotalAmount),
     0
   );
 
   const totalOrders = allOrders.length;
-
-  const deliveredOrders = allOrders.filter(
-    (order) => order.OrderStatus === "Delivered"
-  ).length;
-
+  const deliveredOrders = allOrders.filter((order) => order.OrderStatus === "Delivered").length;
   const inProgressOrders = allOrders.filter((order) =>
-    ["Placed", "Preparing", "PickedUp"].includes(order.OrderStatus)
+    ["Placed", "Preparing", "Prepared", "PickedUp"].includes(order.OrderStatus)
   ).length;
-
-  const cancelledOrders = allOrders.filter(
-    (order) => order.OrderStatus === "Cancelled"
-  ).length;
-
+  const cancelledOrders = allOrders.filter((order) => order.OrderStatus === "Cancelled").length;
   const avgOrderValue = totalOrders ? Math.round(totalRevenue / totalOrders) : 0;
 
   const uniqueCustomers = new Set(allOrders.map((order) => order.UserID));
-
   const repeatCustomers = new Set(
     Object.entries(
       allOrders.reduce((acc, order) => {
@@ -158,7 +152,7 @@ async function getVendorDataset(userId) {
       );
 
       const restaurantRevenue = restaurantOrders.reduce(
-        (sum, order) => sum + toNumber(order.TotalAmount),
+        (sum, order) => sum + toNumber(order.RestaurantEarning || order.TotalAmount),
         0
       );
 
@@ -180,41 +174,25 @@ async function getVendorDataset(userId) {
         health:
           cancelledOrders > deliveredOrders && orderCount ? "Needs attention" : "Stable",
         momentum:
-          restaurantRevenue >= 10000
-            ? "Strong"
-            : restaurantRevenue >= 3000
-            ? "Moderate"
-            : "Low",
+          restaurantRevenue >= 10000 ? "Strong" : restaurantRevenue >= 3000 ? "Moderate" : "Low",
       };
     })
     .sort((a, b) => b.totalRevenue - a.totalRevenue);
 
-  const openRestaurants = restaurantRows.filter(
-    (restaurant) => restaurant.status === "Open"
-  ).length;
-
-  const busyRestaurants = restaurantRows.filter(
-    (restaurant) => restaurant.status === "Busy"
-  ).length;
-
-  const closedRestaurants = restaurantRows.filter(
-    (restaurant) => restaurant.status === "Closed"
-  ).length;
-
+  const openRestaurants = restaurantRows.filter((restaurant) => restaurant.status === "Open").length;
+  const busyRestaurants = restaurantRows.filter((restaurant) => restaurant.status === "Busy").length;
+  const closedRestaurants = restaurantRows.filter((restaurant) => restaurant.status === "Closed").length;
   const avgRating = restaurantRows.length
-    ? Number(
-        (
-          restaurantRows.reduce((sum, restaurant) => sum + restaurant.rating, 0) /
-          restaurantRows.length
-        ).toFixed(1)
-      )
+    ? Number((restaurantRows.reduce((sum, restaurant) => sum + restaurant.rating, 0) / restaurantRows.length).toFixed(1))
     : 0;
 
   const orderRows = allOrders.map((order) => {
     const primaryPayment = order.payments[0];
+    const itemNames = order.items.map((item) => item.item?.ItemName).filter(Boolean);
 
     return {
       id: order.OrderID,
+      restaurantId: order.restaurantId,
       customer: order.user?.Name || "Customer",
       branch: order.restaurantName,
       amount: Math.round(toNumber(order.TotalAmount)),
@@ -222,47 +200,51 @@ async function getVendorDataset(userId) {
       createdAt: order.OrderDateTime,
       paymentStatus: primaryPayment?.PaymentStatus || "Pending",
       paymentMethod: primaryPayment?.PaymentMethod || "N/A",
+      itemSummary: itemNames.slice(0, 3).join(", ") || "Items unavailable",
+      itemCount: order.items.length,
     };
   });
 
-  const payoutRows = allPayments
-    .map((payment) => {
-      const amount = Math.round(toNumber(payment.TotalAmount));
-      let status = "Under Review";
+  const payoutRows = allOrders
+    .map((order) => {
+      const primaryPayment = order.payments[0];
+      const amount = Math.round(toNumber(order.RestaurantEarning || order.TotalAmount));
+      let status = "Pending";
 
-      if (payment.PaymentStatus === "Success") status = "Settled";
-      if (payment.PaymentStatus === "Pending") status = "Pending";
+      if (order.OrderStatus === "Delivered") status = "Settled";
+      else if (order.OrderStatus === "Cancelled") status = "Under Review";
 
       return {
-        branch: payment.restaurantName,
+        branch: order.restaurantName,
         amount,
         status,
-        date: payment.PaymentDate,
-        paymentMethod: payment.PaymentMethod || "N/A",
-        reference: payment.TransactionReference || payment.PaymentID.slice(0, 8),
+        date: primaryPayment?.PaymentDate || order.OrderDateTime,
+        paymentMethod: primaryPayment?.PaymentMethod || "N/A",
+        reference: primaryPayment?.TransactionReference || String(order.OrderID).slice(0, 8),
       };
     })
     .sort((a, b) => new Date(b.date) - new Date(a.date));
 
-  const totalSettled = payoutRows
-    .filter((item) => item.status === "Settled")
-    .reduce((sum, item) => sum + item.amount, 0);
-
-  const pendingPayouts = payoutRows
-    .filter((item) => item.status === "Pending")
-    .reduce((sum, item) => sum + item.amount, 0);
-
-  const underReviewPayouts = payoutRows
-    .filter((item) => item.status === "Under Review")
-    .reduce((sum, item) => sum + item.amount, 0);
-
+  const totalSettled = payoutRows.filter((item) => item.status === "Settled").reduce((sum, item) => sum + item.amount, 0);
+  const pendingPayouts = payoutRows.filter((item) => item.status === "Pending").reduce((sum, item) => sum + item.amount, 0);
+  const underReviewPayouts = payoutRows.filter((item) => item.status === "Under Review").reduce((sum, item) => sum + item.amount, 0);
   const payoutHealth = payoutRows.length
-    ? Math.round(
-        (payoutRows.filter((item) => item.status === "Settled").length /
-          payoutRows.length) *
-          100
-      )
+    ? Math.round((payoutRows.filter((item) => item.status === "Settled").length / payoutRows.length) * 100)
     : 0;
+
+  const reviewRows = allOrders
+    .flatMap((order) =>
+      order.reviews.map((review) => ({
+        id: review.ReviewID,
+        restaurantId: review.RestaurantID,
+        restaurantName: order.restaurantName,
+        userName: review.user?.Name || "Customer",
+        rating: toNumber(review.RatingRestaurant),
+        comment: review.ReviewTextRestaurant || "",
+        createdAt: review.CreatedAt,
+      }))
+    )
+    .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
 
   const revenueTrend = buildTrend(allOrders);
 
@@ -270,6 +252,8 @@ async function getVendorDataset(userId) {
     restaurants: restaurantRows,
     orders: orderRows,
     payouts: payoutRows,
+    reviews: reviewRows,
+    revenueTrend,
     summary: {
       totalRestaurants: restaurantRows.length,
       openRestaurants,
@@ -288,7 +272,6 @@ async function getVendorDataset(userId) {
       payoutHealth,
       underReviewPayouts,
     },
-    revenueTrend,
     analytics: {
       statusBreakdown: [
         { label: "Delivered", value: deliveredOrders },
@@ -350,6 +333,25 @@ exports.getOrders = async (req, res) => {
   } catch (error) {
     console.error("❌ DASHBOARD ORDERS ERROR:", error);
     res.status(500).json({ message: "Failed to load vendor orders." });
+  }
+};
+
+exports.getReviews = async (req, res) => {
+  try {
+    const data = await getVendorDataset(req.params.userId);
+    res.status(200).json({
+      reviews: data.reviews,
+      summary: {
+        totalReviews: data.reviews.length,
+        averageRating: data.reviews.length
+          ? Number((data.reviews.reduce((sum, item) => sum + toNumber(item.rating), 0) / data.reviews.length).toFixed(1))
+          : 0,
+        fiveStarReviews: data.reviews.filter((item) => toNumber(item.rating) === 5).length,
+      },
+    });
+  } catch (error) {
+    console.error("❌ DASHBOARD REVIEWS ERROR:", error);
+    res.status(500).json({ message: "Failed to load vendor reviews." });
   }
 };
 

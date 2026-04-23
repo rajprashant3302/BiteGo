@@ -5,13 +5,26 @@ function buildId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
+function parseRestaurantIds(value) {
+  if (!value) return [];
+  return String(value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+}
+
 exports.getNotifications = async (req, res) => {
   try {
-    res.status(200).json({
-      notifications: notificationsStore
-        .slice()
-        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-    });
+    const restaurantIds = parseRestaurantIds(req.query.restaurantIds);
+    const rows = notificationsStore
+      .filter((item) => {
+        if (!restaurantIds.length) return true;
+        return !item.restaurantId || restaurantIds.includes(String(item.restaurantId));
+      })
+      .slice()
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+    res.status(200).json({ notifications: rows });
   } catch (error) {
     console.error("❌ GET NOTIFICATIONS ERROR:", error);
     res.status(500).json({ message: "Failed to load notifications." });
@@ -21,7 +34,6 @@ exports.getNotifications = async (req, res) => {
 exports.markNotificationAsRead = async (req, res) => {
   try {
     const { id } = req.params;
-
     const notification = notificationsStore.find((item) => item.id === id);
 
     if (!notification) {
@@ -45,6 +57,7 @@ exports.createOrderNotification = async ({
   customerName,
   branch,
   amount,
+  restaurantId,
 }) => {
   notificationsStore.unshift({
     id: buildId(),
@@ -54,6 +67,7 @@ exports.createOrderNotification = async ({
     isRead: false,
     createdAt: new Date().toISOString(),
     orderId,
+    restaurantId: restaurantId ? String(restaurantId) : null,
     actionUrl: "/dashboard/orders",
   });
 

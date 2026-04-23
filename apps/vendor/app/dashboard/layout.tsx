@@ -3,8 +3,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo, useState, useEffect, useRef, useCallback } from "react";
+import { io, Socket } from "socket.io-client";
 import { usePathname } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { getOrderSocketConfig, getVendorRestaurants } from "../lib/dashboard/vendor-dashboard";
 import {
   FiAlertCircle,
   FiBarChart2,
@@ -105,6 +107,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const [loadingNotifications, setLoadingNotifications] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [audioReady, setAudioReady] = useState(false);
+  const [vendorRestaurantIds, setVendorRestaurantIds] = useState<string[]>([]);
 
   const notificationsRef = useRef<HTMLDivElement | null>(null);
   const profileMenuRef = useRef<HTMLDivElement | null>(null);
@@ -231,7 +234,11 @@ const pageTitle = useMemo(() => {
       const base =
         process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
 
-      const res = await fetch(`${base}/api/notifications`, {
+      const query = vendorRestaurantIds.length
+        ? `?restaurantIds=${encodeURIComponent(vendorRestaurantIds.join(","))}`
+        : "";
+
+      const res = await fetch(`${base}/api/notifications${query}`, {
         cache: "no-store",
       });
 
@@ -310,14 +317,84 @@ const pageTitle = useMemo(() => {
   }, [unlockAudio]);
 
   useEffect(() => {
+    if (!session?.user?.id) return;
+
+    let active = true;
+    const token = (session.user as { accessToken?: string } | undefined)?.accessToken;
+
+    getVendorRestaurants(String(session.user.id), token)
+      .then((data) => {
+        if (!active) return;
+        setVendorRestaurantIds(data.restaurants.map((item) => String(item.id)));
+      })
+      .catch((error) => {
+        console.error("Failed to load vendor restaurants", error);
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [session]);
+
+  useEffect(() => {
     loadNotifications(true);
 
     const interval = setInterval(() => {
       loadNotifications(false);
-    }, 8000);
+    }, 15000);
 
     return () => clearInterval(interval);
-  }, [soundEnabled, audioReady]);
+  }, [soundEnabled, audioReady, vendorRestaurantIds.join(",")]);
+
+  useEffect(() => {
+    if (!vendorRestaurantIds.length) return;
+
+    const { url, path } = getOrderSocketConfig();
+    const socket: Socket = io(url, {
+      path,
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+    });
+
+    socket.on("connect", () => {
+      vendorRestaurantIds.forEach((id) => socket.emit("join_room", `restaurant_${id}`));
+    });
+
+    const handleIncomingOrder = (payload: any) => {
+      const item = {
+        id: `${Date.now()}-${payload?.orderId || Math.random().toString(36).slice(2, 8)}`,
+        title: "New order received",
+        text: `${payload?.customerName || "Customer"} placed an order for ₹${payload?.amount || 0}.`,
+        type: "success" as const,
+        isRead: false,
+        createdAt: new Date().toISOString(),
+        orderId: payload?.orderId || null,
+        actionUrl: "/dashboard/orders",
+      };
+
+      setNotifications((prev) => [item, ...prev].slice(0, 100));
+      if (soundEnabled && audioReady) {
+        playNotificationSound();
+      }
+    };
+
+    const handleOrderStatusUpdate = () => {
+      loadNotifications(false);
+    };
+
+    socket.on("new_vendor_order", handleIncomingOrder);
+    socket.on("vendor_new_order", handleIncomingOrder);
+    socket.on("vendor_order_status_updated", handleOrderStatusUpdate);
+
+    return () => {
+      vendorRestaurantIds.forEach((id) => socket.emit("leave_room", `restaurant_${id}`));
+      socket.off("new_vendor_order", handleIncomingOrder);
+      socket.off("vendor_new_order", handleIncomingOrder);
+      socket.off("vendor_order_status_updated", handleOrderStatusUpdate);
+      socket.disconnect();
+    };
+  }, [vendorRestaurantIds.join(","), soundEnabled, audioReady, playNotificationSound]);
 
   useEffect(() => {
     setMobileOpen(false);

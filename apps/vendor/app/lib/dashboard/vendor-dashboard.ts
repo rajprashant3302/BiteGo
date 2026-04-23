@@ -17,6 +17,7 @@ export type Restaurant = {
 
 export type VendorOrder = {
   id: string;
+  restaurantId: string;
   customer: string;
   branch: string;
   amount: number;
@@ -24,6 +25,18 @@ export type VendorOrder = {
   createdAt: string;
   paymentStatus: string;
   paymentMethod: string;
+  itemSummary?: string;
+  itemCount?: number;
+};
+
+export type VendorReview = {
+  id: string;
+  restaurantId: string;
+  restaurantName: string;
+  userName: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
 };
 
 export type Payout = {
@@ -76,6 +89,23 @@ const BASE_URL =
   process.env.NEXT_PUBLIC_AUTH_SERVICE_URL ||
   "http://localhost:5000";
 
+export function getOrderSocketConfig() {
+  const raw = process.env.NEXT_PUBLIC_ORDER_SERVICE_URL || "http://localhost:5001";
+  try {
+    const url = new URL(raw);
+    const isSvc = url.pathname.startsWith("/svc/order");
+    return {
+      url: `${url.protocol}//${url.host}`,
+      path: isSvc ? "/svc/order/socket.io" : "/socket.io",
+    };
+  } catch {
+    if (raw.startsWith("/svc/order")) {
+      return { url: window?.location?.origin || "http://localhost", path: "/svc/order/socket.io" };
+    }
+    return { url: raw, path: "/socket.io" };
+  }
+}
+
 async function request<T>(path: string, token?: string): Promise<T> {
   const res = await fetch(`${BASE_URL}${path}`, {
     headers: {
@@ -113,6 +143,13 @@ export async function getVendorOrders(userId: string, token?: string) {
     >;
     orders: VendorOrder[];
   }>(`/api/partner/dashboard/${userId}/orders`, token);
+}
+
+export async function getVendorReviews(userId: string, token?: string) {
+  return request<{
+    summary: { totalReviews: number; averageRating: number; fiveStarReviews: number };
+    reviews: VendorReview[];
+  }>(`/api/partner/dashboard/${userId}/reviews`, token);
 }
 
 export async function getVendorAnalytics(userId: string, token?: string) {

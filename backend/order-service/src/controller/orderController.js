@@ -138,23 +138,7 @@ exports.placeOrder = async (req, res) => {
 
         // A. Wallet Logic
         if (useWallet) {
-          walletDeduction = Math.min(Number(userProfile.WalletBalance), finalPayable);
-
-          if (walletDeduction > 0) {
-            await tx.user.update({
-              where: { UserID: userId },
-              data: { WalletBalance: { decrement: walletDeduction } },
-            });
-
-            await tx.walletTransaction.create({
-              data: {
-                UserID: userId,
-                Amount: walletDeduction,
-                TransactionType: "Debit",
-                Description: "Order payment split",
-              },
-            });
-          }
+          walletDeduction = Math.min(Number(userProfile.WalletBalance || 0), finalPayable);
         }
 
         const remainingAmount = finalPayable - walletDeduction;
@@ -264,6 +248,7 @@ exports.placeOrder = async (req, res) => {
       customerName: userProfile.Name || "Customer",
       branch: restaurant.Name || "Restaurant",
       amount: Number(result.order.TotalAmount),
+      restaurantId,
     });
 
     const io = req.app.get("socketio");
@@ -286,7 +271,15 @@ exports.placeOrder = async (req, res) => {
 
   } catch (error) {
     console.error("Order Error:", error);
-    res.status(500).json({ success: false, error: error.message });
+    const rawMessage = String(error?.message || "");
+    const dbMessage = String(error?.meta?.cause || "");
+    const combinedMessage = `${rawMessage} ${dbMessage}`;
+
+    if (combinedMessage.includes("Insufficient wallet balance")) {
+      return res.status(400).json({ success: false, error: "Insufficient wallet balance" });
+    }
+
+    res.status(500).json({ success: false, error: error.message || "Failed to place order" });
   }
 };
 

@@ -99,8 +99,7 @@ export default function AnalyticsPage() {
           </div>
 
           <div className="flex h-72 items-end justify-between gap-3 rounded-[24px] border border-dashed border-gray-200 bg-gradient-to-b from-orange-50/50 to-white p-5">
-            {data.revenueTrend.map((value) => {
-              const height = Math.max(14, Math.round((value.revenue / maxValue) * 100));
+            {data.revenueTrend.map((value) => {const height =value.revenue > 0? Math.round((value.revenue / maxValue) * 100): 2;
               return (
                 <div key={value.label} className="group flex flex-1 flex-col items-center gap-3">
                   <div className="flex h-56 items-end">
